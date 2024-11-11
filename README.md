@@ -137,14 +137,12 @@ Refer to following repositories for instructions on downloading and utilizing th
 If you find this repo or our work useful for your research, please consider citing the [paper](https://arxiv.org/abs/0000.00000):
 
 ```tex
-
 @inproceedings{
   author    = {Chengsen Wang and Qi Qi and Jingyu Wang and Haifeng Sun and Zirui Zhuang and Jinming Wu and Lei Zhang and Jianxin Liao},
   title     = {ChatTime: A Unified Multimodal Time Series Foundation Model Bridging Numerical and Textual Data},
   booktitle = {},
   year      = {2024},
 }
-
 ```
 
 ## 📪 Contact
