@@ -143,8 +143,8 @@ If you find this repo or our work useful for your research, please consider citi
 @inproceedings{
   author    = {Chengsen Wang and Qi Qi and Jingyu Wang and Haifeng Sun and Zirui Zhuang and Jinming Wu and Lei Zhang and Jianxin Liao},
   title     = {ChatTime: A Unified Multimodal Time Series Foundation Model Bridging Numerical and Textual Data},
-  booktitle = {},
-  year      = {2024},
+  booktitle = {AAAI Conference on Artificial Intelligence},
+  year      = {2025},
 }
 ```
 
