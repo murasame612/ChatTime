@@ -31,6 +31,14 @@ if __name__ == "__main__":
     parser.add_argument("--logging_steps", type=int, default=2)
     parser.add_argument("--max_steps", type=int, default=-1)
 
+    parser.add_argument("--low_limit", type=float, default=-1)
+    parser.add_argument("--high_limit", type=float, default=1)
+    parser.add_argument("--n_tokens", type=int, default=10002)
+    parser.add_argument("--prec", type=int, default=4)
+    parser.add_argument("--time_sep", type=str, default=" ")
+    parser.add_argument("--time_flag", type=str, default="###")
+    parser.add_argument("--nan_flag", type=str, default="Nan")
+
     args = parser.parse_args()
 
     sys.path.append(args.code_path)
