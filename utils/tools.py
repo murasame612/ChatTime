@@ -23,7 +23,7 @@ class Discretizer:
         bin_ids = np.digitize(x=scaled_context, bins=self.boundaries, right=True)
         dispersed_context = self.centers[bin_ids]
 
-        dispersed_context[np.isnan(context)] = np.NaN
+        dispersed_context[np.isnan(context)] = np.nan
 
         return dispersed_context
 
