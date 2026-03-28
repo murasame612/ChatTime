@@ -44,3 +44,5 @@ checkpoints/
 *.bin
 *.safetensors
 *.ckpt
+
+ChatTime-1-7B-Chat
