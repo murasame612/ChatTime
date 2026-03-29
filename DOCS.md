@@ -71,6 +71,30 @@
 - 微调数据输出路径：`./dataset/dam_1h_dx_sft`
 - 微调模型输出路径：`./outputs/dam_1h_dx`
 
+### 5. `dam_1h` 训练后自动评测
+
+文件： [training/evaluate_dam_model.py](/home/murasame/nas/pythonproject/ChatTime/training/evaluate_dam_model.py)
+
+作用：
+
+- 读取 `validation` 或 `test` 数据
+- 调用训练后的模型逐条预测
+- 自动计算并保存：
+  - `MAE`
+  - `MSE`
+  - `RMSE`
+
+默认行为：
+
+- `finetune_dam_1h.sh` 训练结束后自动执行评测
+- 默认评测 `validation`
+- 默认最多评测 `100` 条样本，避免评测过久
+
+默认输出文件：
+
+- `outputs/dam_1h_dx/eval_validation.json`
+- `outputs/dam_1h_dx/eval_validation_predictions.json`
+
 ## 使用方法
 
 ### 1. 生成 `dam_1h` 微调数据
@@ -102,6 +126,20 @@ python training/build_dam_finetune_dataset.py \
 bash training/finetune_dam_1h.sh
 ```
 
+如果你之前已经生成过旧版 `dataset/dam_1h_dx_sft`，建议先删除再重建。
+因为现在评测依赖数据集中新增的字段：
+
+- `context`
+- `hist_data`
+- `future_data`
+
+建议这样执行：
+
+```bash
+rm -rf dataset/dam_1h_dx_sft
+bash training/finetune_dam_1h.sh
+```
+
 如需覆盖默认路径和参数，可以通过环境变量传入：
 
 ```bash
@@ -110,6 +148,15 @@ DATASET_PATH=./dataset/dam_1h_dx_sft \
 OUTPUT_PATH=./outputs/dam_1h_dx \
 PER_DEVICE_TRAIN_BATCH_SIZE=1 \
 GRADIENT_ACCUMULATION_STEPS=16 \
+bash training/finetune_dam_1h.sh
+```
+
+如果想控制评测行为，也可以额外传：
+
+```bash
+EVAL_SPLIT=validation \
+EVAL_MAX_SAMPLES=200 \
+EVAL_OUTPUT_PATH=./outputs/dam_1h_dx/eval_validation.json \
 bash training/finetune_dam_1h.sh
 ```
 
@@ -125,6 +172,19 @@ python training/build_dam_finetune_dataset.py \
   --target_prefix dx \
   --limit_targets 2 \
   --limit_windows_per_target 3
+```
+
+### 4. 单独执行评测
+
+如果模型已经训练完成，也可以单独跑评测：
+
+```bash
+python training/evaluate_dam_model.py \
+  --model_path ./outputs/dam_1h_dx \
+  --dataset_path ./dataset/dam_1h_dx_sft \
+  --split validation \
+  --output_path ./outputs/dam_1h_dx/eval_validation.json \
+  --max_samples 100
 ```
 
 ## 当前数据构造策略
@@ -193,16 +253,20 @@ python training/build_dam_finetune_dataset.py \
 - 用 base / pretrain checkpoint 做领域适配
 - 再决定是否继续 instruction tuning
 
-### 4. 还没有评估脚本
+### 4. 已有基础评测，但还不完整
 
-目前仓库里还没有针对 `dam_1h` 的完整评估流程，包括：
+目前已经补上了基础评测脚本，可以自动输出：
 
-- MSE / MAE 等指标计算
-- 各 `dx` 目标列的单独报告
+- `MAE`
+- `MSE`
+- `RMSE`
+
+但仍然缺少更完整的实验体系，包括：
+
 - 基线方法对比
-- 微调后专用推理脚本
-
-这部分建议作为下一步补齐。
+- 更系统的 test 集全量评测
+- 训练过程中的在线验证
+- 更完整的可视化报告
 
 ### 5. 特征越多，prompt 越长
 
@@ -235,3 +299,6 @@ python training/build_dam_finetune_dataset.py \
 - 重写 `requirements.txt`，改为项目直接依赖列表
 - 重写 `requirements.md`，补充推荐安装流程和 CUDA / notebook 注意事项
 - 明确补上 `trl`、`unsloth`、`matplotlib`、`peft`、`sentencepiece`、`safetensors` 等关键依赖
+- 新增 `training/evaluate_dam_model.py`
+- `dam_1h` 微调流程增加训练后自动评测
+- 评测结果支持落盘保存 `MAE / MSE / RMSE`
