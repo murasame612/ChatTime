@@ -85,6 +85,7 @@ def main():
     per_target_true = defaultdict(list)
     per_target_pred = defaultdict(list)
     prediction_records = []
+    failed_samples = 0
 
     for idx, sample in enumerate(samples, start=1):
         hist_data = np.array(sample["hist_data"], dtype=float)
@@ -93,6 +94,19 @@ def main():
 
         pred = model.predict(hist_data, context)
         pred = np.array(pred[: len(future_data)], dtype=float)
+        if pred.size == 0 or np.isnan(pred).all():
+            failed_samples += 1
+            prediction_records.append(
+                {
+                    "target_col": sample["target_col"],
+                    "forecast_time": sample["forecast_time"],
+                    "context_feature_limit": args.max_context_features,
+                    "status": "failed",
+                    "true": future_data.tolist(),
+                    "pred": [],
+                }
+            )
+            continue
 
         per_target_true[sample["target_col"]].append(future_data)
         per_target_pred[sample["target_col"]].append(pred)
@@ -110,6 +124,9 @@ def main():
         if idx % 20 == 0:
             print(f"Evaluated {idx}/{len(samples)} samples")
 
+    if not per_target_true:
+        raise ValueError("All evaluation samples failed to produce usable predictions.")
+
     all_true = np.concatenate([np.concatenate(v) for v in per_target_true.values()])
     all_pred = np.concatenate([np.concatenate(v) for v in per_target_pred.values()])
     overall_metrics = compute_metrics(all_true, all_pred)
@@ -125,6 +142,8 @@ def main():
         "dataset_path": args.dataset_path,
         "split": args.split,
         "num_samples": len(samples),
+        "successful_samples": len(samples) - failed_samples,
+        "failed_samples": failed_samples,
         "max_context_features": args.max_context_features,
         "overall": overall_metrics,
         "per_target": per_target_metrics,
