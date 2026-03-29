@@ -65,6 +65,9 @@ def make_sample(df, target_col, end_idx, hist_len, pred_len, feature_cols, preci
 
     return {
         "text": prompt,
+        "context": context,
+        "hist_data": target_hist.tolist(),
+        "future_data": target_future.tolist(),
         "target_col": target_col,
         "forecast_time": str(df.iloc[end_idx][time_col]),
         "history_start_time": str(df.iloc[hist_start][time_col]),

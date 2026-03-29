@@ -22,6 +22,9 @@ GRADIENT_ACCUMULATION_STEPS="${GRADIENT_ACCUMULATION_STEPS:-8}"
 SAVE_STEPS="${SAVE_STEPS:-200}"
 LOGGING_STEPS="${LOGGING_STEPS:-10}"
 MAX_STEPS="${MAX_STEPS:--1}"
+EVAL_SPLIT="${EVAL_SPLIT:-validation}"
+EVAL_MAX_SAMPLES="${EVAL_MAX_SAMPLES:-100}"
+EVAL_OUTPUT_PATH="${EVAL_OUTPUT_PATH:-$OUTPUT_PATH/eval_${EVAL_SPLIT}.json}"
 
 if [ ! -f "$DATASET_PATH/train.jsonl" ]; then
   python "$CODE_PATH/training/build_dam_finetune_dataset.py" \
@@ -50,3 +53,10 @@ python "$CODE_PATH/training/finetune.py" \
   --logging_steps "$LOGGING_STEPS" \
   --max_steps "$MAX_STEPS" \
   --load_in_4bit
+
+python "$CODE_PATH/training/evaluate_dam_model.py" \
+  --model_path "$OUTPUT_PATH" \
+  --dataset_path "$DATASET_PATH" \
+  --split "$EVAL_SPLIT" \
+  --output_path "$EVAL_OUTPUT_PATH" \
+  --max_samples "$EVAL_MAX_SAMPLES"
