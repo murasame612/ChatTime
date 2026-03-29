@@ -47,5 +47,6 @@ checkpoints/
 
 ChatTime-1-7B-Chat
 dam_dataset
+dataset/
 
 *cache/
