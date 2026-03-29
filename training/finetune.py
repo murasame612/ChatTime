@@ -144,13 +144,20 @@ if __name__ == "__main__":
     trainer_kwargs = {
         "model": model,
         "train_dataset": dataset,
+        "args": training_args,
+    }
+
+    optional_trainer_kwargs = {
         "dataset_text_field": "text",
         "max_seq_length": args.max_seq_length,
         "dataset_num_proc": 64,
         "packing": False,
         "formatting_func": formatting_func,
-        "args": training_args,
     }
+
+    for key, value in optional_trainer_kwargs.items():
+        if key in trainer_signature.parameters:
+            trainer_kwargs[key] = value
 
     # TRL changed `tokenizer` to `processing_class` in newer versions.
     if "tokenizer" in trainer_signature.parameters:
