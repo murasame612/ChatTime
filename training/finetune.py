@@ -1,4 +1,5 @@
 import argparse
+import inspect
 import sys
 from pathlib import Path
 
@@ -116,38 +117,48 @@ if __name__ == "__main__":
     print(f"Dataset example: \n{dataset[0]['text']}\n")
 
     # train model
-    trainer = SFTTrainer(
-        model=model,
-        tokenizer=tokenizer,
-        train_dataset=dataset,
-        dataset_text_field="text",
-        max_seq_length=args.max_seq_length,
-        dataset_num_proc=64,
-        packing=False,
-        formatting_func=formatting_func,
-        args=TrainingArguments(
-            per_device_train_batch_size=args.per_device_train_batch_size,
-            gradient_accumulation_steps=args.gradient_accumulation_steps,
-            num_train_epochs=args.num_train_epochs,
-            weight_decay=0.01,
-            warmup_ratio=0.05,
-            max_grad_norm=1.0,
-            learning_rate=2e-4,
-            logging_strategy="steps",
-            logging_steps=args.logging_steps,
-            save_strategy="steps",
-            save_steps=args.save_steps,
-            max_steps=args.max_steps,
-            save_total_limit=1,
-            logging_first_step=True,
-            optim="adamw_8bit",
-            lr_scheduler_type="cosine",
-            seed=args.random_seed,
-            output_dir=args.log_path,
-            fp16=not is_bfloat16_supported(),
-            bf16=is_bfloat16_supported(),
-        ),
+    training_args = TrainingArguments(
+        per_device_train_batch_size=args.per_device_train_batch_size,
+        gradient_accumulation_steps=args.gradient_accumulation_steps,
+        num_train_epochs=args.num_train_epochs,
+        weight_decay=0.01,
+        warmup_ratio=0.05,
+        max_grad_norm=1.0,
+        learning_rate=2e-4,
+        logging_strategy="steps",
+        logging_steps=args.logging_steps,
+        save_strategy="steps",
+        save_steps=args.save_steps,
+        max_steps=args.max_steps,
+        save_total_limit=1,
+        logging_first_step=True,
+        optim="adamw_8bit",
+        lr_scheduler_type="cosine",
+        seed=args.random_seed,
+        output_dir=args.log_path,
+        fp16=not is_bfloat16_supported(),
+        bf16=is_bfloat16_supported(),
     )
+
+    trainer_signature = inspect.signature(SFTTrainer.__init__)
+    trainer_kwargs = {
+        "model": model,
+        "train_dataset": dataset,
+        "dataset_text_field": "text",
+        "max_seq_length": args.max_seq_length,
+        "dataset_num_proc": 64,
+        "packing": False,
+        "formatting_func": formatting_func,
+        "args": training_args,
+    }
+
+    # TRL changed `tokenizer` to `processing_class` in newer versions.
+    if "tokenizer" in trainer_signature.parameters:
+        trainer_kwargs["tokenizer"] = tokenizer
+    elif "processing_class" in trainer_signature.parameters:
+        trainer_kwargs["processing_class"] = tokenizer
+
+    trainer = SFTTrainer(**trainer_kwargs)
 
     # title Show current memory stats
     gpu_stats = torch.cuda.get_device_properties(0)

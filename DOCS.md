@@ -229,3 +229,9 @@ python training/build_dam_finetune_dataset.py \
 - 新增 `training/build_dam_finetune_dataset.py`
 - 新增 `training/finetune_dam_1h.sh`
 - 已完成 `dam_1h` 小样本数据构造验证
+
+### 2026-03-29
+
+- 重写 `requirements.txt`，改为项目直接依赖列表
+- 重写 `requirements.md`，补充推荐安装流程和 CUDA / notebook 注意事项
+- 明确补上 `trl`、`unsloth`、`matplotlib`、`peft`、`sentencepiece`、`safetensors` 等关键依赖
