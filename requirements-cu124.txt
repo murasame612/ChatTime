@@ -1,0 +1,17 @@
+# ChatTime 核心 Python 依赖，面向 CUDA 12.4 环境
+# 使用方式：
+# 1. 先按 DOCS/ENVIRONMENT_CUDA124.md 安装 PyTorch CUDA 12.4
+# 2. 再安装本文件中的其余依赖
+
+accelerate==1.8.1
+datasets==3.6.0
+huggingface-hub==0.33.1
+matplotlib==3.9.0
+numpy==2.1.2
+pandas==2.3.0
+peft==0.15.2
+safetensors==0.5.3
+scikit-learn==1.7.0
+sentencepiece==0.2.0
+transformers==4.53.0
+trl==0.29.0
