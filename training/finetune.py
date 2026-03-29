@@ -1,11 +1,52 @@
 import argparse
 import sys
+from pathlib import Path
 
 import torch
-from datasets import load_dataset
+from datasets import DatasetDict, load_dataset, load_from_disk
 from transformers import TrainingArguments, LlamaTokenizer
 from trl import SFTTrainer
 from unsloth import FastLanguageModel, is_bfloat16_supported
+
+
+def load_train_dataset(dataset_path):
+    path = Path(dataset_path)
+
+    if path.is_file():
+        suffix = path.suffix.lower()
+        if suffix in {".json", ".jsonl"}:
+            return load_dataset("json", data_files=str(path), split="train")
+        if suffix == ".csv":
+            return load_dataset("csv", data_files=str(path), split="train")
+        if suffix == ".parquet":
+            return load_dataset("parquet", data_files=str(path), split="train")
+        raise ValueError(f"Unsupported dataset file format: {path}")
+
+    if path.is_dir():
+        # Support datasets saved by Dataset.save_to_disk / DatasetDict.save_to_disk.
+        if (path / "dataset_info.json").exists() or (path / "state.json").exists() or (path / "dataset_dict.json").exists():
+            dataset = load_from_disk(str(path))
+            if isinstance(dataset, DatasetDict):
+                if "train" not in dataset:
+                    raise ValueError(f"No 'train' split found in dataset directory: {path}")
+                return dataset["train"]
+            return dataset
+
+        # Support directories that contain train/validation jsonl files.
+        train_jsonl = path / "train.jsonl"
+        train_json = path / "train.json"
+        train_csv = path / "train.csv"
+        train_parquet = path / "train.parquet"
+        if train_jsonl.exists():
+            return load_dataset("json", data_files=str(train_jsonl), split="train")
+        if train_json.exists():
+            return load_dataset("json", data_files=str(train_json), split="train")
+        if train_csv.exists():
+            return load_dataset("csv", data_files=str(train_csv), split="train")
+        if train_parquet.exists():
+            return load_dataset("parquet", data_files=str(train_parquet), split="train")
+
+    return load_dataset(dataset_path, split="train")
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
@@ -71,7 +112,7 @@ if __name__ == "__main__":
 
 
     print(f"\nLoading dataset in {args.dataset_path}")
-    dataset = load_dataset(args.dataset_path, split="train")
+    dataset = load_train_dataset(args.dataset_path)
     print(f"Dataset example: \n{dataset[0]['text']}\n")
 
     # train model
