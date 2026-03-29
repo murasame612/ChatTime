@@ -25,6 +25,7 @@ MAX_STEPS="${MAX_STEPS:--1}"
 EVAL_SPLIT="${EVAL_SPLIT:-validation}"
 EVAL_MAX_SAMPLES="${EVAL_MAX_SAMPLES:-100}"
 EVAL_OUTPUT_PATH="${EVAL_OUTPUT_PATH:-$OUTPUT_PATH/eval_${EVAL_SPLIT}.json}"
+EVAL_MAX_CONTEXT_FEATURES="${EVAL_MAX_CONTEXT_FEATURES:-40}"
 
 if [ ! -f "$DATASET_PATH/train.jsonl" ]; then
   python "$CODE_PATH/training/build_dam_finetune_dataset.py" \
@@ -59,4 +60,5 @@ python "$CODE_PATH/training/evaluate_dam_model.py" \
   --dataset_path "$DATASET_PATH" \
   --split "$EVAL_SPLIT" \
   --output_path "$EVAL_OUTPUT_PATH" \
-  --max_samples "$EVAL_MAX_SAMPLES"
+  --max_samples "$EVAL_MAX_SAMPLES" \
+  --max_context_features "$EVAL_MAX_CONTEXT_FEATURES"

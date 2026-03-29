@@ -32,6 +32,20 @@ def compute_metrics(y_true, y_pred):
     return {"mse": mse, "mae": mae, "rmse": rmse}
 
 
+def truncate_context(context, max_context_features):
+    if context is None or max_context_features is None or max_context_features <= 0:
+        return context
+
+    parts = [part.strip() for part in context.split(";") if part.strip()]
+    if not parts:
+        return context
+
+    # Always keep the leading target declaration.
+    head = parts[:1]
+    tail = parts[1: 1 + max_context_features]
+    return "; ".join(head + tail)
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--model_path", type=str, required=True)
@@ -43,6 +57,7 @@ def main():
     parser.add_argument("--top_k", type=int, default=50)
     parser.add_argument("--top_p", type=float, default=1.0)
     parser.add_argument("--temperature", type=float, default=1.0)
+    parser.add_argument("--max_context_features", type=int, default=40)
     args = parser.parse_args()
 
     dataset_dir = Path(args.dataset_path)
@@ -74,7 +89,7 @@ def main():
     for idx, sample in enumerate(samples, start=1):
         hist_data = np.array(sample["hist_data"], dtype=float)
         future_data = np.array(sample["future_data"], dtype=float)
-        context = sample.get("context")
+        context = truncate_context(sample.get("context"), args.max_context_features)
 
         pred = model.predict(hist_data, context)
         pred = np.array(pred[: len(future_data)], dtype=float)
@@ -86,6 +101,7 @@ def main():
             {
                 "target_col": sample["target_col"],
                 "forecast_time": sample["forecast_time"],
+                "context_feature_limit": args.max_context_features,
                 "true": future_data.tolist(),
                 "pred": pred.tolist(),
             }
@@ -109,6 +125,7 @@ def main():
         "dataset_path": args.dataset_path,
         "split": args.split,
         "num_samples": len(samples),
+        "max_context_features": args.max_context_features,
         "overall": overall_metrics,
         "per_target": per_target_metrics,
         "metadata": metadata,
