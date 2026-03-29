@@ -108,13 +108,13 @@ if __name__ == "__main__":
     )
 
 
-    # load dataset
-    def formatting_func(example):
-        return example["text"] + EOS_TOKEN
-
-
     print(f"\nLoading dataset in {args.dataset_path}")
     dataset = load_train_dataset(args.dataset_path)
+    dataset = dataset.map(
+        lambda example: {"text": example["text"] + EOS_TOKEN},
+        num_proc=1,
+        desc="Append EOS token",
+    )
     print(f"Dataset example: \n{dataset[0]['text']}\n")
 
     # train model
@@ -153,7 +153,6 @@ if __name__ == "__main__":
         "max_seq_length": args.max_seq_length,
         "dataset_num_proc": args.dataset_num_proc,
         "packing": False,
-        "formatting_func": formatting_func,
     }
 
     for key, value in optional_trainer_kwargs.items():
