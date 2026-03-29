@@ -74,21 +74,21 @@ class ChatTime:
             for sample in samples:
                 generated_text = sample["generated_text"]
                 if "### Response:\n" not in generated_text:
-                    pred = np.full(min(remaining, self.max_pred_len), np.NaN)
+                    pred = np.full(min(remaining, self.max_pred_len), np.nan)
                     pred_list.append(pred)
                     continue
 
                 serialized_prediction = generated_text.split("### Response:\n", 1)[1]
                 dispersed_prediction = self.serializer.inverse_serialize(serialized_prediction)
                 if dispersed_prediction.size == 0:
-                    pred = np.full(min(remaining, self.max_pred_len), np.NaN)
+                    pred = np.full(min(remaining, self.max_pred_len), np.nan)
                     pred_list.append(pred)
                     continue
 
                 pred = self.discretizer.inverse_discretize(dispersed_prediction)
 
                 if len(pred) < min(remaining, self.max_pred_len):
-                    pred = np.concatenate([pred, np.full(min(remaining, self.max_pred_len) - len(pred), np.NaN)])
+                    pred = np.concatenate([pred, np.full(min(remaining, self.max_pred_len) - len(pred), np.nan)])
 
                 pred_list.append(pred[:min(remaining, self.max_pred_len)])
 
