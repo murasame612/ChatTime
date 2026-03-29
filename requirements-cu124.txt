@@ -1,7 +1,12 @@
 # ChatTime 核心 Python 依赖，面向 CUDA 12.4 环境
 # 使用方式：
 # 1. 先按 DOCS/ENVIRONMENT_CUDA124.md 安装 PyTorch CUDA 12.4
-# 2. 再安装本文件中的其余依赖
+# 2. 安装 Unsloth 官方推荐的 cu124 + torch 2.5 组合
+# 3. 再安装本文件中的其余依赖
+#
+# 注意：
+# - 这里故意不再固定 `transformers` 和 `trl`
+# - 这两个版本交给 Unsloth 官方安装链决定，避免 resolver 冲突
 
 accelerate==1.8.1
 datasets==3.6.0
@@ -13,5 +18,3 @@ peft==0.15.2
 safetensors==0.5.3
 scikit-learn==1.7.0
 sentencepiece==0.2.0
-transformers==4.53.0
-trl==0.29.0

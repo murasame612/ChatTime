@@ -83,11 +83,9 @@ pip install torch==2.5.1 torchvision==0.20.1 torchaudio==2.5.1 \
 
 ### 3. 安装项目基础依赖
 
-```bash
-pip install -r requirements-cu124.txt
-```
+先安装 Unsloth，再装项目其余依赖。
 
-### 4. 安装 Unsloth
+### 3. 安装 Unsloth
 
 ```bash
 pip install --upgrade pip
@@ -101,6 +99,12 @@ pip install unsloth
 ```
 
 但对 `cu124 + torch 2.5`，更推荐上面的官方定制安装方式。
+
+### 4. 安装项目基础依赖
+
+```bash
+pip install -r requirements-cu124.txt
+```
 
 ### 5. 可选：安装 notebook
 
@@ -133,6 +137,17 @@ python -m ipykernel install --user --name chattime-cu124 --display-name "Python 
 python -c "import torch; print(torch.__version__); print(torch.version.cuda); print(torch.cuda.is_available())"
 python -c "import transformers, trl, accelerate; print(transformers.__version__, trl.__version__, accelerate.__version__)"
 python -c "import unsloth; print('unsloth ok')"
+```
+
+如果你想先确认 resolver 不再打架，推荐安装顺序是：
+
+```bash
+pip install torch==2.5.1 torchvision==0.20.1 torchaudio==2.5.1 \
+  --index-url https://download.pytorch.org/whl/cu124
+
+pip install "unsloth[cu124-torch250] @ git+https://github.com/unslothai/unsloth.git"
+
+pip install -r requirements-cu124.txt
 ```
 
 ## 这套环境的取舍
