@@ -34,7 +34,7 @@ class ChatTime:
             low_cpu_mem_usage=True,
             return_dict=True,
             torch_dtype=torch.float16,
-            device_map="auto",
+            # device_map="auto",
         )
 
         self.tokenizer = LlamaTokenizer.from_pretrained(self.model_path, trust_remote_code=True)
