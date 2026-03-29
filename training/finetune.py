@@ -71,6 +71,7 @@ if __name__ == "__main__":
     parser.add_argument("--save_steps", type=int, default=2)
     parser.add_argument("--logging_steps", type=int, default=2)
     parser.add_argument("--max_steps", type=int, default=-1)
+    parser.add_argument("--dataset_num_proc", type=int, default=1)
 
     args = parser.parse_args()
 
@@ -150,7 +151,7 @@ if __name__ == "__main__":
     optional_trainer_kwargs = {
         "dataset_text_field": "text",
         "max_seq_length": args.max_seq_length,
-        "dataset_num_proc": 64,
+        "dataset_num_proc": args.dataset_num_proc,
         "packing": False,
         "formatting_func": formatting_func,
     }
