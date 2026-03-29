@@ -46,3 +46,6 @@ checkpoints/
 *.ckpt
 
 ChatTime-1-7B-Chat
+dataset/
+dam_dataset/
+*cache/
