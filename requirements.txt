@@ -1,8 +1,18 @@
+# ChatTime 核心依赖
+# 说明：
+# 1. 这里保留项目直接依赖，不再放整机环境导出结果。
+# 2. PyTorch / torchvision / torchaudio 请按本机 CUDA 版本单独安装。
+
 accelerate==1.8.1
 datasets==3.6.0
 huggingface-hub==0.33.1
+matplotlib==3.9.0
 numpy==2.1.2
 pandas==2.3.0
+peft==0.15.2
+safetensors==0.5.3
 scikit-learn==1.7.0
-torch==2.7.1+cu118
+sentencepiece==0.2.0
 transformers==4.53.0
+trl
+unsloth

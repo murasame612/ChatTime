@@ -1,0 +1,632 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ChatTime 仓库导读</title>
+  <style>
+    :root {
+      --bg: #f6f1e8;
+      --panel: rgba(255, 252, 247, 0.9);
+      --ink: #1f2430;
+      --muted: #5f6570;
+      --accent: #b4572d;
+      --accent-2: #2f6c63;
+      --line: rgba(31, 36, 48, 0.12);
+      --warn: #8c4b2f;
+      --shadow: 0 18px 44px rgba(84, 61, 37, 0.12);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      font-family: "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+      color: var(--ink);
+      background:
+        radial-gradient(circle at top left, rgba(180, 87, 45, 0.14), transparent 28%),
+        radial-gradient(circle at top right, rgba(47, 108, 99, 0.12), transparent 22%),
+        linear-gradient(180deg, #fbf7f0 0%, var(--bg) 100%);
+      line-height: 1.65;
+    }
+
+    .page {
+      width: min(1180px, calc(100vw - 32px));
+      margin: 24px auto 64px;
+    }
+
+    .hero {
+      background: linear-gradient(135deg, rgba(180, 87, 45, 0.92), rgba(47, 108, 99, 0.9));
+      color: #fffaf4;
+      border-radius: 28px;
+      padding: 36px 32px;
+      box-shadow: var(--shadow);
+    }
+
+    .hero h1 {
+      margin: 0 0 10px;
+      font-size: clamp(28px, 5vw, 46px);
+      line-height: 1.1;
+    }
+
+    .hero p {
+      margin: 0;
+      max-width: 860px;
+      color: rgba(255, 250, 244, 0.92);
+      font-size: 17px;
+    }
+
+    .badge-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 18px;
+    }
+
+    .badge {
+      padding: 8px 12px;
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.16);
+      border: 1px solid rgba(255, 255, 255, 0.18);
+      font-size: 14px;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(12, 1fr);
+      gap: 18px;
+      margin-top: 18px;
+    }
+
+    .card {
+      grid-column: span 12;
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 24px;
+      padding: 24px;
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(8px);
+    }
+
+    .card h2 {
+      margin: 0 0 14px;
+      font-size: 25px;
+    }
+
+    .card h3 {
+      margin: 22px 0 10px;
+      font-size: 18px;
+    }
+
+    .card p,
+    .card li {
+      color: var(--ink);
+    }
+
+    .muted {
+      color: var(--muted);
+    }
+
+    .col-7 {
+      grid-column: span 7;
+    }
+
+    .col-5 {
+      grid-column: span 5;
+    }
+
+    .col-6 {
+      grid-column: span 6;
+    }
+
+    .stack > * + * {
+      margin-top: 14px;
+    }
+
+    .pill-list,
+    .file-list,
+    .meeting-list,
+    .read-list {
+      display: grid;
+      gap: 12px;
+      padding: 0;
+      list-style: none;
+      margin: 14px 0 0;
+    }
+
+    .pill-item,
+    .file-item,
+    .meeting-item,
+    .read-item {
+      background: rgba(255, 255, 255, 0.72);
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      padding: 14px 16px;
+    }
+
+    .pill-item strong,
+    .file-item strong,
+    .meeting-item strong,
+    .read-item strong {
+      display: block;
+      margin-bottom: 4px;
+    }
+
+    .flow {
+      display: grid;
+      gap: 10px;
+      margin-top: 16px;
+    }
+
+    .flow-step {
+      position: relative;
+      padding: 14px 16px;
+      border-radius: 18px;
+      background: linear-gradient(135deg, rgba(180, 87, 45, 0.08), rgba(47, 108, 99, 0.08));
+      border: 1px solid var(--line);
+    }
+
+    .flow-step:not(:last-child)::after {
+      content: "↓";
+      position: absolute;
+      left: 18px;
+      bottom: -18px;
+      color: var(--accent);
+      font-weight: 700;
+    }
+
+    .code {
+      font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+      background: #23272f;
+      color: #f6f1e8;
+      border-radius: 18px;
+      padding: 16px;
+      overflow-x: auto;
+      font-size: 13px;
+      line-height: 1.55;
+      border: 1px solid rgba(255, 255, 255, 0.06);
+    }
+
+    .table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 14px;
+      overflow: hidden;
+      border-radius: 16px;
+      border: 1px solid var(--line);
+    }
+
+    .table th,
+    .table td {
+      text-align: left;
+      vertical-align: top;
+      padding: 12px 14px;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .table th {
+      background: rgba(47, 108, 99, 0.08);
+      font-size: 14px;
+    }
+
+    .note {
+      margin-top: 14px;
+      padding: 14px 16px;
+      border-radius: 16px;
+      background: rgba(140, 75, 47, 0.08);
+      border: 1px solid rgba(140, 75, 47, 0.18);
+      color: var(--warn);
+    }
+
+    .tiny {
+      font-size: 13px;
+    }
+
+    @media (max-width: 900px) {
+      .col-7,
+      .col-6,
+      .col-5 {
+        grid-column: span 12;
+      }
+
+      .page {
+        width: min(100vw - 18px, 1180px);
+      }
+
+      .hero,
+      .card {
+        padding: 20px;
+        border-radius: 22px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <section class="hero">
+      <h1>ChatTime 仓库导读</h1>
+      <p>这是一份给“组会前头有点晕的人”准备的仓库说明。你可以把它理解成一张地图：这个项目想做什么、数据怎么流、模型怎么训、奇怪的库分别在干嘛、你汇报时应该先讲哪几件事。</p>
+      <div class="badge-row">
+        <span class="badge">主题：时间序列 + 大语言模型</span>
+        <span class="badge">核心骨架：PyTorch + Transformers</span>
+        <span class="badge">训练方式：LoRA / 4-bit 微调</span>
+        <span class="badge">关键技巧：把时间序列写成“文本”</span>
+      </div>
+    </section>
+
+    <div class="grid">
+      <section class="card col-7">
+        <h2>一句话理解仓库</h2>
+        <p><strong>ChatTime 的核心想法</strong>：先把连续时间序列做缩放、离散化、序列化，变成类似文本 token 的形式，再交给 Llama 这类语言模型去做预测或问答。</p>
+        <div class="flow">
+          <div class="flow-step"><strong>原始数值序列</strong><br />例如一段传感器、交通、功率等历史观测值。</div>
+          <div class="flow-step"><strong>离散化与序列化</strong><br />把连续值映射到固定“词表”，再拼成字符串，如 <code>###0.1234###</code>。</div>
+          <div class="flow-step"><strong>拼成 Prompt</strong><br />使用统一模板，把“任务说明 + 输入序列 + 可选上下文”交给 Llama。</div>
+          <div class="flow-step"><strong>文本生成</strong><br />模型生成后续 token，相当于生成未来时间点的离散值。</div>
+          <div class="flow-step"><strong>反序列化与反离散化</strong><br />把生成文本还原回数值预测结果。</div>
+        </div>
+      </section>
+
+      <section class="card col-5">
+        <h2>你在组会里最该先讲什么</h2>
+        <ul class="meeting-list">
+          <li class="meeting-item">
+            <strong>1. 这不是传统时序模型</strong>
+            它不是单纯用 Transformer Encoder 直接吃数值，而是把时序当成一种“外语”给 LLM 读。
+          </li>
+          <li class="meeting-item">
+            <strong>2. 核心模型不是从零训练</strong>
+            基座来自 Llama，然后通过连续预训练和指令微调，适配时间序列任务。
+          </li>
+          <li class="meeting-item">
+            <strong>3. 仓库最近新增了工程化链路</strong>
+            包括本地数据集读取、DAM 数据构建、自动微调和自动评估。
+          </li>
+          <li class="meeting-item">
+            <strong>4. 目前多变量能力是“折中版”</strong>
+            一个目标序列做主预测，其余通道主要作为文本上下文注入，而不是严格联合编码。
+          </li>
+        </ul>
+      </section>
+
+      <section class="card col-6">
+        <h2>仓库结构</h2>
+        <ul class="file-list">
+          <li class="file-item">
+            <strong><code>model/model.py</code></strong>
+            推理主入口。定义 <code>ChatTime</code> 类，负责加载模型、构造生成流程、把文本输出还原成预测值。
+          </li>
+          <li class="file-item">
+            <strong><code>utils/tools.py</code></strong>
+            数值预处理核心。包括 <code>Discretizer</code> 和 <code>Serializer</code>。
+          </li>
+          <li class="file-item">
+            <strong><code>utils/prompt.py</code></strong>
+            Prompt 模板库。把预测任务、分析任务包装成统一文本格式。
+          </li>
+          <li class="file-item">
+            <strong><code>training/pretrain.py</code></strong>
+            连续预训练脚本。基于基础 Llama 扩词表、加 LoRA、训练时序语言建模能力。
+          </li>
+          <li class="file-item">
+            <strong><code>training/finetune.py</code></strong>
+            指令微调脚本。对 ChatTime 数据集或本地数据做监督微调。
+          </li>
+          <li class="file-item">
+            <strong><code>training/build_dam_finetune_dataset.py</code></strong>
+            把 DAM CSV 构造成 ChatTime 可训练的 jsonl 样本。
+          </li>
+          <li class="file-item">
+            <strong><code>training/evaluate_dam_model.py</code></strong>
+            加载模型逐条预测，输出 MSE / MAE / RMSE。
+          </li>
+          <li class="file-item">
+            <strong><code>training/*.sh</code></strong>
+            实际运行脚本，方便一键预训练、微调和 DAM 任务实验。
+          </li>
+          <li class="file-item">
+            <strong><code>hf.py</code></strong>
+            从 Hugging Face 下载模型权重的简化脚本。
+          </li>
+        </ul>
+      </section>
+
+      <section class="card col-6">
+        <h2>阅读顺序</h2>
+        <ul class="read-list">
+          <li class="read-item">
+            <strong>第 1 步：先看 <code>README.md</code></strong>
+            建立这个项目到底解决什么问题的总体印象。
+          </li>
+          <li class="read-item">
+            <strong>第 2 步：看 <code>utils/tools.py</code></strong>
+            这是最关键的“时序转文本”入口，不懂这个就会一直觉得仓库很玄。
+          </li>
+          <li class="read-item">
+            <strong>第 3 步：看 <code>utils/prompt.py</code></strong>
+            理解模型最后吃进去的并不是纯数字，而是 instruction-style 文本。
+          </li>
+          <li class="read-item">
+            <strong>第 4 步：看 <code>model/model.py</code></strong>
+            你会明白推理时如何反复生成未来片段、再拼成完整预测。
+          </li>
+          <li class="read-item">
+            <strong>第 5 步：看 <code>training/finetune.py</code> 和 <code>training/pretrain.py</code></strong>
+            这时再看训练脚本，就不会被一堆库名吓到。
+          </li>
+          <li class="read-item">
+            <strong>第 6 步：最后看 DAM 扩展脚本</strong>
+            它们是“面向具体项目的工程封装”，不是论文核心算法本身。
+          </li>
+        </ul>
+      </section>
+
+      <section class="card col-12">
+        <h2>仓库真正的主线</h2>
+        <table class="table">
+          <thead>
+            <tr>
+              <th>阶段</th>
+              <th>做什么</th>
+              <th>对应文件</th>
+              <th>为什么重要</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>数值转 token</td>
+              <td>缩放数值，映射到离散中心，再编码成文本字符串</td>
+              <td><code>utils/tools.py</code></td>
+              <td>这是 ChatTime 和普通 Llama 项目最大的不同</td>
+            </tr>
+            <tr>
+              <td>prompt 构造</td>
+              <td>把预测任务、分析任务写成 instruction / input / response 格式</td>
+              <td><code>utils/prompt.py</code></td>
+              <td>让时序任务适配 LLM 的输入输出形式</td>
+            </tr>
+            <tr>
+              <td>模型推理</td>
+              <td>加载 Llama，生成文本，再还原成未来数值</td>
+              <td><code>model/model.py</code></td>
+              <td>把“语言模型输出”变回“时间序列预测”</td>
+            </tr>
+            <tr>
+              <td>连续预训练</td>
+              <td>扩充时序词表，在时序语料上继续训练基础模型</td>
+              <td><code>training/pretrain.py</code></td>
+              <td>让基座模型学会读这种特殊 token</td>
+            </tr>
+            <tr>
+              <td>指令微调</td>
+              <td>对预测/问答样本做监督微调</td>
+              <td><code>training/finetune.py</code></td>
+              <td>让模型更像一个能执行时序任务的助手</td>
+            </tr>
+            <tr>
+              <td>项目特化</td>
+              <td>把 DAM 业务数据打包成 ChatTime 格式并做评估</td>
+              <td><code>training/build_dam_finetune_dataset.py</code> 等</td>
+              <td>把论文方法接到真实数据上</td>
+            </tr>
+          </tbody>
+        </table>
+      </section>
+
+      <section class="card col-7">
+        <h2>那些“奇怪的库”到底是干嘛的</h2>
+        <ul class="pill-list">
+          <li class="pill-item">
+            <strong><code>torch</code></strong>
+            底层引擎。张量计算、GPU、模型执行、训练都靠它。没有它，整个仓库转不起来。
+          </li>
+          <li class="pill-item">
+            <strong><code>transformers</code></strong>
+            Hugging Face 大模型工具箱。这里主要负责 Llama 模型、tokenizer 和生成接口。
+          </li>
+          <li class="pill-item">
+            <strong><code>datasets</code></strong>
+            Hugging Face 数据集库。负责读 json/jsonl/csv/parquet、本地磁盘数据集和远程数据集。
+          </li>
+          <li class="pill-item">
+            <strong><code>unsloth</code></strong>
+            省显存、提速的大模型微调封装。这个库会让 LoRA 训练更省资源，所以你会在训练脚本里频繁看到它。
+          </li>
+          <li class="pill-item">
+            <strong><code>trl</code></strong>
+            训练器库。这里主要用了 <code>SFTTrainer</code>，相当于现成的监督微调训练循环。
+          </li>
+          <li class="pill-item">
+            <strong><code>peft</code></strong>
+            参数高效微调库。LoRA 本质上属于它这类方法。代码没有直接 import 很多，但训练逻辑依赖它的生态能力。
+          </li>
+          <li class="pill-item">
+            <strong><code>accelerate</code></strong>
+            训练和设备调度的底层胶水层，很多 Hugging Face 训练工具会间接依赖它。
+          </li>
+          <li class="pill-item">
+            <strong><code>numpy</code> / <code>pandas</code></strong>
+            普通数值处理和表格处理，不神秘。主要负责时间序列数组和 CSV 数据。
+          </li>
+          <li class="pill-item">
+            <strong><code>scikit-learn</code></strong>
+            这里只是借用了 <code>MinMaxScaler</code> 做缩放，不是在搞传统机器学习建模。
+          </li>
+          <li class="pill-item">
+            <strong><code>huggingface-hub</code></strong>
+            下载模型和数据集用，比如 <code>hf.py</code> 就在做这件事。
+          </li>
+          <li class="pill-item">
+            <strong><code>sentencepiece</code> / <code>safetensors</code></strong>
+            这类更多是 Llama / HF 生态配套依赖，一个是分词相关，一个是权重文件格式相关。
+          </li>
+        </ul>
+      </section>
+
+      <section class="card col-5">
+        <h2>最关键的 3 个自定义模块</h2>
+        <div class="stack">
+          <div class="pill-item">
+            <strong><code>Discretizer</code></strong>
+            先把连续数值缩放到固定范围，再映射到预定义离散中心。相当于把“连续值”变成“词表里的词”。
+          </div>
+          <div class="pill-item">
+            <strong><code>Serializer</code></strong>
+            把离散后的值写成字符串，比如 <code>###0.1234###</code>。这样 LLM 就能按文本来读。
+          </div>
+          <div class="pill-item">
+            <strong><code>getPrompt</code></strong>
+            把任务包装成固定模板：系统说明、指令、输入、输出。预测和分析走的是不同模板。
+          </div>
+        </div>
+        <div class="note">
+          如果你只能记住一个点，就记住这个：<strong>ChatTime 不是直接让 Llama 看原始浮点数，而是先把时间序列翻译成一种特殊文本语言。</strong>
+        </div>
+      </section>
+
+      <section class="card col-6">
+        <h2>推理流程</h2>
+        <div class="code">hist_data
+  -> Discretizer.discretize(...)
+  -> Serializer.serialize(...)
+  -> getPrompt(flag="prediction", ...)
+  -> transformers.pipeline("text-generation")
+  -> 解析 generated_text
+  -> inverse_serialize(...)
+  -> inverse_discretize(...)
+  -> 得到预测值</div>
+        <h3>为什么要分段预测</h3>
+        <p>在 <code>model/model.py</code> 里，模型不是一次性永远生成所有未来点，而是按 <code>max_pred_len</code> 分段生成。生成一小段后，再把预测结果接回历史序列，继续往后推。这是为了更稳地处理较长预测区间。</p>
+      </section>
+
+      <section class="card col-6">
+        <h2>训练流程</h2>
+        <div class="code">Llama 基座
+  -> 加载 tokenizer
+  -> 视情况扩充时序词表
+  -> FastLanguageModel.from_pretrained(...)
+  -> get_peft_model(...) 加 LoRA
+  -> datasets.load_dataset(...)
+  -> TRL 的 SFTTrainer
+  -> TrainingArguments
+  -> trainer.train()
+  -> 保存合并后的模型</div>
+        <h3>为什么会出现 LoRA / 4-bit</h3>
+        <p>因为 7B 级别模型直接全量训练太吃显存，所以这里只训练较少的增量参数，并且可选 4-bit 加载来降低资源开销。这是大模型微调里非常常见的工程做法。</p>
+      </section>
+
+      <section class="card col-12">
+        <h2>DAM 扩展是怎么接进来的</h2>
+        <p>仓库里新增的 DAM 相关脚本，本质是在做一件事：把业务 CSV 转成 ChatTime 原本就能训练的 prompt 样本，而不是重写整个模型结构。</p>
+        <table class="table">
+          <thead>
+            <tr>
+              <th>脚本</th>
+              <th>作用</th>
+              <th>你可以怎么理解</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><code>training/build_dam_finetune_dataset.py</code></td>
+              <td>扫描 CSV 中的目标列，切历史窗口和未来窗口，拼上下文文本，输出 train/validation/test jsonl</td>
+              <td>把原始业务数据翻译成 ChatTime 能吃的监督样本</td>
+            </tr>
+            <tr>
+              <td><code>training/finetune_dam_1h.sh</code></td>
+              <td>如果数据不存在先构造，再启动微调，最后自动评估</td>
+              <td>一键实验入口</td>
+            </tr>
+            <tr>
+              <td><code>training/evaluate_dam_model.py</code></td>
+              <td>逐条跑预测并统计误差</td>
+              <td>实验结果落盘，不只是看训练日志</td>
+            </tr>
+          </tbody>
+        </table>
+        <div class="note">
+          这个 DAM 方案目前不是“真正多变量联合时序建模”。更准确地说，它是<strong>单目标序列预测 + 其他通道文本上下文辅助</strong>。
+        </div>
+      </section>
+
+      <section class="card col-7">
+        <h2>你汇报时可以怎么描述方法</h2>
+        <div class="stack">
+          <div class="pill-item">
+            <strong>方法定位</strong>
+            ChatTime 把时间序列映射成离散 token 序列，用大语言模型统一处理预测和问答任务。
+          </div>
+          <div class="pill-item">
+            <strong>训练路径</strong>
+            先做连续预训练，让模型适应时序 token；再做指令微调，让模型学会按任务要求输出预测或分析结果。
+          </div>
+          <div class="pill-item">
+            <strong>工程实现</strong>
+            基于 Hugging Face + PyTorch 生态，使用 LoRA 和 4-bit 技术降低训练成本。
+          </div>
+          <div class="pill-item">
+            <strong>当前扩展</strong>
+            新增了本地数据集兼容、DAM 数据构造、自动微调与评测流程。
+          </div>
+        </div>
+      </section>
+
+      <section class="card col-5">
+        <h2>最容易卡住的点</h2>
+        <ul class="meeting-list">
+          <li class="meeting-item">
+            <strong>“为什么 tokenizer 要加新 token？”</strong>
+            因为时间序列被编码成特殊数字串，原始 Llama 词表不一定最适配这种形式。
+          </li>
+          <li class="meeting-item">
+            <strong>“为什么用语言模型做预测？”</strong>
+            因为作者希望统一处理数值序列和文本上下文，并复用 LLM 的泛化能力。
+          </li>
+          <li class="meeting-item">
+            <strong>“为什么代码里看起来像 NLP 项目？”</strong>
+            因为它本质上就是把时序任务翻译成 NLP 形式来做。
+          </li>
+          <li class="meeting-item">
+            <strong>“为什么有 sklearn？”</strong>
+            只是拿来做缩放，不是这个仓库的建模核心。
+          </li>
+        </ul>
+      </section>
+
+      <section class="card col-12">
+        <h2>10 分钟速记版</h2>
+        <div class="code">1. ChatTime = 把时间序列离散化成 token，再交给 Llama。
+2. 核心不是“新模型结构”，而是“时序转文本”的表示方式。
+3. 推理入口在 model/model.py。
+4. 核心魔法在 utils/tools.py 和 utils/prompt.py。
+5. 训练主要靠 transformers + datasets + trl + unsloth。
+6. LoRA / 4-bit 是为了省显存，不是新算法本体。
+7. DAM 扩展是把业务 CSV 变成 ChatTime prompt 数据。
+8. 当前 DAM 方案是单目标预测 + 其他特征文本上下文，不是严格多变量联合建模。</div>
+      </section>
+
+      <section class="card col-12">
+        <h2>如果你只剩最后 3 分钟</h2>
+        <p>优先记这三句话：</p>
+        <ul class="meeting-list">
+          <li class="meeting-item">
+            <strong>第一句</strong>
+            这个仓库的核心不是重新设计一个时序神经网络，而是把时间序列编码成文本 token，让 Llama 来做预测和分析。
+          </li>
+          <li class="meeting-item">
+            <strong>第二句</strong>
+            工程上它主要依赖 Hugging Face 生态和 PyTorch，陌生库大多只是大模型微调工具链，比如 Unsloth、TRL、PEFT。
+          </li>
+          <li class="meeting-item">
+            <strong>第三句</strong>
+            当前对 DAM 数据的适配方式是保留原有 ChatTime 架构，把目标序列作为主输入，其他变量作为文本上下文辅助。
+          </li>
+        </ul>
+        <p class="muted tiny">文档基于仓库当前文件整理：README、模型实现、工具模块、训练脚本和 DAM 扩展脚本。</p>
+      </section>
+    </div>
+  </div>
+</body>
+</html>
