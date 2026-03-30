@@ -1,7 +1,10 @@
 import argparse
 import inspect
+import os
 import sys
 from pathlib import Path
+
+os.environ.setdefault("UNSLOTH_DISABLE_STATISTICS", "1")
 
 from unsloth import FastLanguageModel, is_bfloat16_supported
 import torch
@@ -73,8 +76,15 @@ if __name__ == "__main__":
     parser.add_argument("--logging_steps", type=int, default=2)
     parser.add_argument("--max_steps", type=int, default=-1)
     parser.add_argument("--dataset_num_proc", type=int, default=1)
+    parser.add_argument("--gpu_id", type=int, default=None)
 
     args = parser.parse_args()
+
+    if args.gpu_id is not None:
+        if not torch.cuda.is_available():
+            raise RuntimeError("--gpu_id was provided, but CUDA is not available.")
+        torch.cuda.set_device(args.gpu_id)
+        print(f"Using GPU cuda:{args.gpu_id}")
 
     sys.path.append(args.code_path)
 
@@ -169,10 +179,11 @@ if __name__ == "__main__":
     trainer = SFTTrainer(**trainer_kwargs)
 
     # title Show current memory stats
-    gpu_stats = torch.cuda.get_device_properties(0)
+    current_device = torch.cuda.current_device()
+    gpu_stats = torch.cuda.get_device_properties(current_device)
     start_gpu_memory = round(torch.cuda.max_memory_reserved() / 1024 / 1024 / 1024, 3)
     max_memory = round(gpu_stats.total_memory / 1024 / 1024 / 1024, 3)
-    print(f"\nGPU = {gpu_stats.name}. Max memory = {max_memory} GB.")
+    print(f"\nGPU = cuda:{current_device} ({gpu_stats.name}). Max memory = {max_memory} GB.")
     print(f"{start_gpu_memory} GB of memory reserved.\n")
 
     trainer_stats = trainer.train()

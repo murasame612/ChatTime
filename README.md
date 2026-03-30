@@ -125,6 +125,8 @@ print(f"\n{out} / {answer}\n")
 
 The code for Continuous Pre-Training and Instruction Fine-Tuning for ChatTime is located within the [training](./training/) folder, while the model weights are available at [ChengsenWang/ChatTime-1-7B-Base](https://huggingface.co/ChengsenWang/ChatTime-1-7B-Base) and [ChengsenWang/ChatTime-1-7B-Chat](https://huggingface.co/ChengsenWang/ChatTime-1-7B-Chat), respectively.
 
+Training scripts support selecting a specific GPU. For example, use `GPU_ID=1 bash training/finetune_dam_1h.sh` or `bash training/finetune_dam_1h.sh 1`. The same pattern also works for `training/pretrain.sh` and `training/finetune.sh`.
+
 ## :floppy_disk: Datasets
 
 Refer to following repositories for instructions on downloading and utilizing the datasets.

@@ -7,6 +7,7 @@ MODEL_PATH="${MODEL_PATH:-$CODE_PATH/ChatTime-1-7B-Chat}"
 DATASET_PATH="${DATASET_PATH:-$CODE_PATH/dataset/dam_1h_dx_sft}"
 LOG_PATH="${LOG_PATH:-$CODE_PATH/logs/dam_1h_dx}"
 OUTPUT_PATH="${OUTPUT_PATH:-$CODE_PATH/outputs/dam_1h_dx}"
+GPU_ID="${GPU_ID:-${1:-}}"
 
 HIST_LEN="${HIST_LEN:-96}"
 PRED_LEN="${PRED_LEN:-48}"
@@ -26,6 +27,11 @@ EVAL_SPLIT="${EVAL_SPLIT:-validation}"
 EVAL_MAX_SAMPLES="${EVAL_MAX_SAMPLES:-100}"
 EVAL_OUTPUT_PATH="${EVAL_OUTPUT_PATH:-$OUTPUT_PATH/eval_${EVAL_SPLIT}.json}"
 EVAL_MAX_CONTEXT_FEATURES="${EVAL_MAX_CONTEXT_FEATURES:-40}"
+
+if [ -n "$GPU_ID" ]; then
+  export CUDA_VISIBLE_DEVICES="$GPU_ID"
+  echo "Using CUDA_VISIBLE_DEVICES=$CUDA_VISIBLE_DEVICES"
+fi
 
 if [ ! -f "$DATASET_PATH/train.jsonl" ]; then
   python "$CODE_PATH/training/build_dam_finetune_dataset.py" \

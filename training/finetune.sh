@@ -1,6 +1,12 @@
 DATA_PATH=""
 CODE_PATH=""
 MODEL_PATH=""
+GPU_ID="${GPU_ID:-${1:-}}"
+
+if [ -n "$GPU_ID" ]; then
+  export CUDA_VISIBLE_DEVICES="$GPU_ID"
+  echo "Using CUDA_VISIBLE_DEVICES=$CUDA_VISIBLE_DEVICES"
+fi
 
 code_path=$CODE_PATH
 model_path=$MODEL_PATH/ChatTime-1-7B-Base/
