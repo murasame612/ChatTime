@@ -36,11 +36,53 @@ class ChatTime:
             torch_dtype=torch.float16,
             # device_map="auto",
         )
+        if torch.cuda.is_available():
+            self.model = self.model.to("cuda:0")
 
         self.tokenizer = LlamaTokenizer.from_pretrained(self.model_path, trust_remote_code=True)
         self.tokenizer.pad_token = self.tokenizer.eos_token
         self.tokenizer.padding_side = "right"
         self.eos_token_id = self.tokenizer.eos_token_id
+        self.generation_pipe = pipeline(
+            task="text-generation",
+            model=self.model,
+            tokenizer=self.tokenizer,
+            device=0 if torch.cuda.is_available() else -1,
+        )
+
+    def _estimate_prediction_token_budget(self, pred_len):
+        # Estimate generation length from the actual serialized target format
+        # rather than assuming a fixed token cost per forecast point.
+        placeholder = np.zeros(pred_len, dtype=float)
+        serialized_placeholder = self.serializer.serialize(placeholder)
+        response_prefix = "### Response:\n"
+        tokenized = self.tokenizer(response_prefix + serialized_placeholder, add_special_tokens=False)
+
+        return len(tokenized["input_ids"]) + 8
+
+    def _generate_prediction_samples(self, prompt, pred_len):
+        token_budget = self._estimate_prediction_token_budget(pred_len)
+        return self.generation_pipe(
+            prompt,
+            max_new_tokens=token_budget,
+            do_sample=True,
+            num_return_sequences=self.num_samples,
+            top_k=self.top_k,
+            top_p=self.top_p,
+            temperature=self.temperature,
+            eos_token_id=self.eos_token_id,
+        )
+
+    def _aggregate_predictions(self, pred_list, fallback_value):
+        pred_array = np.asarray(pred_list, dtype=float)
+        valid_mask = ~np.isnan(pred_array)
+        valid_columns = np.any(valid_mask, axis=0)
+
+        prediction = np.full(pred_array.shape[1], fallback_value, dtype=float)
+        if valid_columns.any():
+            prediction[valid_columns] = np.nanmedian(pred_array[:, valid_columns], axis=0)
+
+        return prediction
 
     def predict(self, hist_data, context=None):
         if self.hist_len is None or self.pred_len is None:
@@ -54,48 +96,33 @@ class ChatTime:
             dispersed_series = self.discretizer.discretize(series)
             serialized_series = self.serializer.serialize(dispersed_series)
             serialized_series = getPrompt(flag="prediction", context=context, input=serialized_series)
+            current_pred_len = min(remaining, self.max_pred_len)
 
-            pipe = pipeline(
-                task="text-generation",
-                model=self.model,
-                tokenizer=self.tokenizer,
-                min_new_tokens=2 * min(remaining, self.max_pred_len) + 8,
-                max_new_tokens=2 * min(remaining, self.max_pred_len) + 8,
-                do_sample=True,
-                num_return_sequences=self.num_samples,
-                top_k=self.top_k,
-                top_p=self.top_p,
-                temperature=self.temperature,
-                eos_token_id=self.eos_token_id,
-            )
-            samples = pipe(serialized_series)
+            samples = self._generate_prediction_samples(serialized_series, current_pred_len)
 
             pred_list = []
             for sample in samples:
                 generated_text = sample["generated_text"]
                 if "### Response:\n" not in generated_text:
-                    pred = np.full(min(remaining, self.max_pred_len), np.nan)
+                    pred = np.full(current_pred_len, np.nan)
                     pred_list.append(pred)
                     continue
 
                 serialized_prediction = generated_text.split("### Response:\n", 1)[1]
                 dispersed_prediction = self.serializer.inverse_serialize(serialized_prediction)
                 if dispersed_prediction.size == 0:
-                    pred = np.full(min(remaining, self.max_pred_len), np.nan)
+                    pred = np.full(current_pred_len, np.nan)
                     pred_list.append(pred)
                     continue
 
                 pred = self.discretizer.inverse_discretize(dispersed_prediction)
 
-                if len(pred) < min(remaining, self.max_pred_len):
-                    pred = np.concatenate([pred, np.full(min(remaining, self.max_pred_len) - len(pred), np.nan)])
+                if len(pred) < current_pred_len:
+                    pred = np.concatenate([pred, np.full(current_pred_len - len(pred), np.nan)])
 
-                pred_list.append(pred[:min(remaining, self.max_pred_len)])
+                pred_list.append(pred[:current_pred_len])
 
-            prediction = np.nanmedian(pred_list, axis=0)
-            if np.isnan(prediction).all():
-                # Fall back to a flat continuation to keep evaluation running
-                prediction = np.full(min(remaining, self.max_pred_len), series[-1], dtype=float)
+            prediction = self._aggregate_predictions(pred_list, fallback_value=series[-1])
             prediction_list.append(prediction)
             remaining -= prediction.shape[-1]
 
@@ -117,6 +144,10 @@ class ChatTime:
             task="text-generation",
             model=self.model,
             tokenizer=self.tokenizer,
+            device=0 if torch.cuda.is_available() else -1,
+        )
+        samples = pipe(
+            serialized_series,
             max_new_tokens=self.max_pred_len,
             do_sample=True,
             num_return_sequences=self.num_samples,
@@ -125,7 +156,6 @@ class ChatTime:
             temperature=self.temperature,
             eos_token_id=self.eos_token_id,
         )
-        samples = pipe(serialized_series)
 
         response_list = []
         for sample in samples:
