@@ -47,6 +47,12 @@ def apply_training_step_compat_patch(trainer):
     return True
 
 
+def force_single_gpu_trainer_state(training_args):
+    """These scripts are written for single-GPU finetuning even on multi-GPU hosts."""
+    if getattr(training_args, "local_rank", -1) == -1 and torch.cuda.is_available():
+        training_args._n_gpu = 1
+
+
 
 def load_train_dataset(dataset_path):
     path = Path(dataset_path)
@@ -185,6 +191,7 @@ if __name__ == "__main__":
         fp16=not is_bfloat16_supported(),
         bf16=is_bfloat16_supported(),
     )
+    force_single_gpu_trainer_state(training_args)
 
     trainer_signature = inspect.signature(SFTTrainer.__init__)
     trainer_kwargs = {
@@ -211,6 +218,7 @@ if __name__ == "__main__":
         trainer_kwargs["processing_class"] = tokenizer
 
     trainer = SFTTrainer(**trainer_kwargs)
+    force_single_gpu_trainer_state(trainer.args)
     if apply_training_step_compat_patch(trainer):
         print("Applied training_step compatibility patch for scalar num_items_in_batch.")
 

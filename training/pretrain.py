@@ -47,6 +47,12 @@ def apply_training_step_compat_patch(trainer):
     return True
 
 
+def force_single_gpu_trainer_state(training_args):
+    """These scripts are written for single-GPU finetuning even on multi-GPU hosts."""
+    if getattr(training_args, "local_rank", -1) == -1 and torch.cuda.is_available():
+        training_args._n_gpu = 1
+
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--code_path", type=str, required=True, default=None)
@@ -142,6 +148,30 @@ if __name__ == "__main__":
     print(f"Dataset example: \n{dataset[0]['text']}\n")
 
     # train model
+    training_args = TrainingArguments(
+        per_device_train_batch_size=args.per_device_train_batch_size,
+        gradient_accumulation_steps=args.gradient_accumulation_steps,
+        num_train_epochs=args.num_train_epochs,
+        weight_decay=0.01,
+        warmup_ratio=0.05,
+        max_grad_norm=1.0,
+        learning_rate=2e-4,
+        logging_strategy="steps",
+        logging_steps=args.logging_steps,
+        save_strategy="steps",
+        save_steps=args.save_steps,
+        max_steps=args.max_steps,
+        save_total_limit=1,
+        logging_first_step=True,
+        optim="adamw_8bit",
+        lr_scheduler_type="cosine",
+        seed=args.random_seed,
+        output_dir=args.log_path,
+        fp16=not is_bfloat16_supported(),
+        bf16=is_bfloat16_supported(),
+    )
+    force_single_gpu_trainer_state(training_args)
+
     trainer = SFTTrainer(
         model=model,
         tokenizer=tokenizer,
@@ -151,29 +181,9 @@ if __name__ == "__main__":
         dataset_num_proc=64,
         packing=False,
         formatting_func=formatting_func,
-        args=TrainingArguments(
-            per_device_train_batch_size=args.per_device_train_batch_size,
-            gradient_accumulation_steps=args.gradient_accumulation_steps,
-            num_train_epochs=args.num_train_epochs,
-            weight_decay=0.01,
-            warmup_ratio=0.05,
-            max_grad_norm=1.0,
-            learning_rate=2e-4,
-            logging_strategy="steps",
-            logging_steps=args.logging_steps,
-            save_strategy="steps",
-            save_steps=args.save_steps,
-            max_steps=args.max_steps,
-            save_total_limit=1,
-            logging_first_step=True,
-            optim="adamw_8bit",
-            lr_scheduler_type="cosine",
-            seed=args.random_seed,
-            output_dir=args.log_path,
-            fp16=not is_bfloat16_supported(),
-            bf16=is_bfloat16_supported(),
-        ),
+        args=training_args,
     )
+    force_single_gpu_trainer_state(trainer.args)
     if apply_training_step_compat_patch(trainer):
         print("Applied training_step compatibility patch for scalar num_items_in_batch.")
 
