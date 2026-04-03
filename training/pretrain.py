@@ -1,6 +1,9 @@
 import argparse
+import inspect
+import numbers
 import os
 import sys
+from types import MethodType
 
 os.environ.setdefault("UNSLOTH_DISABLE_STATISTICS", "1")
 
@@ -10,6 +13,38 @@ import torch
 from datasets import load_dataset
 from transformers import TrainingArguments, LlamaTokenizer
 from trl import SFTTrainer
+
+
+def _infer_model_device(model):
+    try:
+        return next(model.parameters()).device
+    except StopIteration:
+        return torch.device("cpu")
+
+
+def apply_training_step_compat_patch(trainer):
+    """Handle scalar num_items_in_batch for newer Trainer call paths."""
+    original_training_step = trainer.training_step
+    training_step_signature = inspect.signature(original_training_step)
+    if "num_items_in_batch" not in training_step_signature.parameters:
+        return False
+
+    def wrapped_training_step(self, *args, **kwargs):
+        args = list(args)
+        model = args[0] if args else kwargs.get("model", self.model)
+        device = _infer_model_device(model)
+
+        if len(args) >= 3 and isinstance(args[2], numbers.Real) and not torch.is_tensor(args[2]):
+            args[2] = torch.tensor(args[2], device=device, dtype=torch.float32)
+
+        value = kwargs.get("num_items_in_batch")
+        if isinstance(value, numbers.Real) and not torch.is_tensor(value):
+            kwargs["num_items_in_batch"] = torch.tensor(value, device=device, dtype=torch.float32)
+
+        return original_training_step(*args, **kwargs)
+
+    trainer.training_step = MethodType(wrapped_training_step, trainer)
+    return True
 
 
 if __name__ == "__main__":
@@ -139,6 +174,8 @@ if __name__ == "__main__":
             bf16=is_bfloat16_supported(),
         ),
     )
+    if apply_training_step_compat_patch(trainer):
+        print("Applied training_step compatibility patch for scalar num_items_in_batch.")
 
     # title Show current memory stats
     current_device = torch.cuda.current_device()
