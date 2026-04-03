@@ -52,31 +52,6 @@ def apply_training_step_compat_patch(trainer):
     return True
 
 
-def apply_compute_loss_compat_patch(trainer):
-    """Ensure loss remains a tensor across newer TRL/Transformers combinations."""
-    original_compute_loss = trainer.compute_loss
-    compute_loss_signature = inspect.signature(original_compute_loss)
-    if "num_items_in_batch" not in compute_loss_signature.parameters:
-        return False
-
-    def wrapped_compute_loss(self, model, inputs, return_outputs=False, num_items_in_batch=None):
-        device = _infer_model_device(model)
-        num_items_in_batch = _coerce_scalar_to_tensor(num_items_in_batch, device)
-        output = original_compute_loss(
-            model,
-            inputs,
-            return_outputs=return_outputs,
-            num_items_in_batch=num_items_in_batch,
-        )
-        if return_outputs:
-            loss, outputs = output
-            return _coerce_scalar_to_tensor(loss, device), outputs
-        return _coerce_scalar_to_tensor(output, device)
-
-    trainer.compute_loss = MethodType(wrapped_compute_loss, trainer)
-    return True
-
-
 def force_single_gpu_trainer_state(training_args):
     """These scripts are written for single-GPU finetuning even on multi-GPU hosts."""
     if getattr(training_args, "local_rank", -1) == -1 and torch.cuda.is_available():
@@ -249,8 +224,6 @@ if __name__ == "__main__":
 
     trainer = SFTTrainer(**trainer_kwargs)
     force_single_gpu_trainer_state(trainer.args)
-    if apply_compute_loss_compat_patch(trainer):
-        print("Applied compute_loss compatibility patch for scalar loss values.")
     if apply_training_step_compat_patch(trainer):
         print("Applied training_step compatibility patch for scalar num_items_in_batch.")
 
