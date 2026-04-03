@@ -4,14 +4,13 @@ import numbers
 import os
 import sys
 from pathlib import Path
-from types import MethodType
 
 os.environ.setdefault("UNSLOTH_DISABLE_STATISTICS", "1")
 
 from unsloth import FastLanguageModel, is_bfloat16_supported
 import torch
 from datasets import DatasetDict, load_dataset, load_from_disk
-from transformers import TrainingArguments, LlamaTokenizer
+from transformers import TrainingArguments, LlamaTokenizer, Trainer as HFTrainer
 from trl import SFTTrainer
 
 
@@ -28,27 +27,46 @@ def _coerce_scalar_to_tensor(value, device):
     return value
 
 
-def apply_training_step_compat_patch(trainer):
-    """Handle scalar num_items_in_batch for newer Trainer call paths."""
-    original_training_step = trainer.training_step
+def install_trainer_training_step_compat_patch():
+    """Replace Trainer.training_step with a version tolerant to scalar batch metadata."""
+    original_training_step = HFTrainer.training_step
     training_step_signature = inspect.signature(original_training_step)
+    if getattr(HFTrainer.training_step, "_chattime_compat_patch", False):
+        return False
     if "num_items_in_batch" not in training_step_signature.parameters:
         return False
 
-    def wrapped_training_step(self, *args, **kwargs):
-        args = list(args)
-        model = args[0] if args else kwargs.get("model", self.model)
+    def wrapped_training_step(self, model, inputs, num_items_in_batch=None):
         device = _infer_model_device(model)
+        num_items_in_batch = _coerce_scalar_to_tensor(num_items_in_batch, device)
 
-        if len(args) >= 3:
-            args[2] = _coerce_scalar_to_tensor(args[2], device)
+        model.train()
+        if hasattr(self.optimizer, "train") and callable(self.optimizer.train):
+            self.optimizer.train()
 
-        value = kwargs.get("num_items_in_batch")
-        kwargs["num_items_in_batch"] = _coerce_scalar_to_tensor(value, device)
+        inputs = self._prepare_inputs(inputs)
+        with self.compute_loss_context_manager():
+            loss = self.compute_loss(model, inputs, num_items_in_batch=num_items_in_batch)
 
-        return original_training_step(*args, **kwargs)
+        del inputs
 
-    trainer.training_step = MethodType(wrapped_training_step, trainer)
+        if self.args.n_gpu > 1 and hasattr(loss, "mean"):
+            loss = loss.mean()
+
+        if self.use_apex:
+            from apex import amp
+            with amp.scale_loss(loss, self.optimizer) as scaled_loss:
+                scaled_loss.backward()
+        else:
+            kwargs = {}
+            if getattr(self.accelerator, "distributed_type", None) == "DEEPSPEED":
+                kwargs["scale_wrt_gas"] = False
+            self.accelerator.backward(loss, **kwargs)
+
+        return loss.detach() / self.args.gradient_accumulation_steps
+
+    wrapped_training_step._chattime_compat_patch = True
+    HFTrainer.training_step = wrapped_training_step
     return True
 
 
@@ -222,10 +240,11 @@ if __name__ == "__main__":
     elif "processing_class" in trainer_signature.parameters:
         trainer_kwargs["processing_class"] = tokenizer
 
+    if install_trainer_training_step_compat_patch():
+        print("Installed Trainer.training_step compatibility patch.")
+
     trainer = SFTTrainer(**trainer_kwargs)
     force_single_gpu_trainer_state(trainer.args)
-    if apply_training_step_compat_patch(trainer):
-        print("Applied training_step compatibility patch for scalar num_items_in_batch.")
 
     # title Show current memory stats
     current_device = torch.cuda.current_device()
