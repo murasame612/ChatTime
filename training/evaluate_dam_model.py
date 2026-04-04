@@ -2,6 +2,7 @@ import argparse
 import json
 import math
 import sys
+import time
 from collections import defaultdict
 from pathlib import Path
 
@@ -53,11 +54,12 @@ def main():
     parser.add_argument("--split", type=str, default="validation", choices=["train", "validation", "test"])
     parser.add_argument("--output_path", type=str, required=True)
     parser.add_argument("--max_samples", type=int, default=None)
-    parser.add_argument("--num_samples", type=int, default=4)
+    parser.add_argument("--num_samples", type=int, default=1)
     parser.add_argument("--top_k", type=int, default=50)
     parser.add_argument("--top_p", type=float, default=1.0)
     parser.add_argument("--temperature", type=float, default=1.0)
     parser.add_argument("--max_context_features", type=int, default=40)
+    parser.add_argument("--log_interval", type=int, default=5)
     args = parser.parse_args()
 
     dataset_dir = Path(args.dataset_path)
@@ -86,13 +88,33 @@ def main():
     per_target_pred = defaultdict(list)
     prediction_records = []
     failed_samples = 0
+    sample_times = []
+    total_generated_tokens = 0
+    max_generated_tokens = 0
+    total_invalid_sample_outputs = 0
+    eval_start = time.perf_counter()
+
+    print(
+        f"Starting evaluation: samples={len(samples)}, num_samples={args.num_samples}, "
+        f"max_context_features={args.max_context_features}, split={args.split}"
+    )
 
     for idx, sample in enumerate(samples, start=1):
+        sample_start = time.perf_counter()
         hist_data = np.array(sample["hist_data"], dtype=float)
         future_data = np.array(sample["future_data"], dtype=float)
         context = truncate_context(sample.get("context"), args.max_context_features)
 
         pred = model.predict(hist_data, context)
+        prediction_stats = getattr(model, "last_prediction_stats", {})
+        sample_elapsed = time.perf_counter() - sample_start
+        sample_times.append(sample_elapsed)
+        total_generated_tokens += prediction_stats.get("total_generated_tokens", 0)
+        max_generated_tokens = max(
+            max_generated_tokens,
+            prediction_stats.get("max_generated_tokens_per_sequence", 0),
+        )
+        total_invalid_sample_outputs += prediction_stats.get("invalid_sample_outputs", 0)
         pred = np.array(pred[: len(future_data)], dtype=float)
         if pred.size == 0 or np.isnan(pred).all():
             failed_samples += 1
@@ -102,27 +124,43 @@ def main():
                     "forecast_time": sample["forecast_time"],
                     "context_feature_limit": args.max_context_features,
                     "status": "failed",
+                    "elapsed_seconds": round(sample_elapsed, 3),
+                    "prediction_stats": prediction_stats,
                     "true": future_data.tolist(),
                     "pred": [],
                 }
             )
-            continue
+        else:
+            per_target_true[sample["target_col"]].append(future_data)
+            per_target_pred[sample["target_col"]].append(pred)
 
-        per_target_true[sample["target_col"]].append(future_data)
-        per_target_pred[sample["target_col"]].append(pred)
+            prediction_records.append(
+                {
+                    "target_col": sample["target_col"],
+                    "forecast_time": sample["forecast_time"],
+                    "context_feature_limit": args.max_context_features,
+                    "elapsed_seconds": round(sample_elapsed, 3),
+                    "prediction_stats": prediction_stats,
+                    "true": future_data.tolist(),
+                    "pred": pred.tolist(),
+                }
+            )
 
-        prediction_records.append(
-            {
-                "target_col": sample["target_col"],
-                "forecast_time": sample["forecast_time"],
-                "context_feature_limit": args.max_context_features,
-                "true": future_data.tolist(),
-                "pred": pred.tolist(),
-            }
-        )
-
-        if idx % 20 == 0:
-            print(f"Evaluated {idx}/{len(samples)} samples")
+        if idx % args.log_interval == 0 or idx == len(samples):
+            elapsed = time.perf_counter() - eval_start
+            avg_sample_seconds = elapsed / idx
+            remaining = len(samples) - idx
+            eta_seconds = remaining * avg_sample_seconds
+            avg_generated_tokens = total_generated_tokens / idx if idx else 0.0
+            print(
+                f"Evaluated {idx}/{len(samples)} samples | "
+                f"avg_sample={avg_sample_seconds:.2f}s | "
+                f"last_sample={sample_elapsed:.2f}s | "
+                f"avg_generated_tokens={avg_generated_tokens:.1f} | "
+                f"max_generated_tokens={max_generated_tokens} | "
+                f"invalid_outputs={total_invalid_sample_outputs} | "
+                f"eta={eta_seconds / 60:.1f}m"
+            )
 
     if not per_target_true:
         raise ValueError("All evaluation samples failed to produce usable predictions.")
@@ -141,10 +179,15 @@ def main():
         "model_path": args.model_path,
         "dataset_path": args.dataset_path,
         "split": args.split,
-        "num_samples": len(samples),
+        "num_samples": args.num_samples,
         "successful_samples": len(samples) - failed_samples,
         "failed_samples": failed_samples,
         "max_context_features": args.max_context_features,
+        "avg_sample_seconds": float(np.mean(sample_times)) if sample_times else 0.0,
+        "max_sample_seconds": float(np.max(sample_times)) if sample_times else 0.0,
+        "avg_generated_tokens_per_sample": total_generated_tokens / len(sample_times) if sample_times else 0.0,
+        "max_generated_tokens_per_sequence": max_generated_tokens,
+        "invalid_sample_outputs": total_invalid_sample_outputs,
         "overall": overall_metrics,
         "per_target": per_target_metrics,
         "metadata": metadata,

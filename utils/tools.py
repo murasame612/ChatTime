@@ -53,11 +53,15 @@ class Serializer:
 
         context = []
         for num in matches:
+            cleaned = num.strip()
+            if cleaned == "" or cleaned.lower() == self.nan_flag.lower():
+                context.append(np.NaN)
+                continue
+
             try:
-                context.append(float(num))
-            except ValueError as e:
-                print(e)
-                context.append(np.nan)
+                context.append(float(cleaned))
+            except ValueError:
+                context.append(np.NaN)
 
         context = np.array(context)
 

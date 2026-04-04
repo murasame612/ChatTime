@@ -44,6 +44,8 @@ class ChatTime:
         self.tokenizer.padding_side = "right"
         self.eos_token_id = self.tokenizer.eos_token_id
         self.device = next(self.model.parameters()).device
+        self.last_generation_stats = {}
+        self.last_prediction_stats = {}
 
     def _estimate_prediction_token_budget(self, pred_len):
         # Estimate generation length from the actual serialized target format
@@ -61,6 +63,7 @@ class ChatTime:
 
     def _generate_text(self, prompt, max_new_tokens):
         inputs = self.tokenizer(prompt, return_tensors="pt").to(self.device)
+        prompt_tokens = int(inputs["input_ids"].shape[-1])
         generation_config = GenerationConfig.from_model_config(self.model.config)
         generation_config.max_new_tokens = max_new_tokens
         generation_config.do_sample = True
@@ -78,6 +81,12 @@ class ChatTime:
                 generation_config=generation_config,
             )
 
+        generated_token_counts = [int(seq.shape[-1] - prompt_tokens) for seq in outputs]
+        self.last_generation_stats = {
+            "prompt_tokens": prompt_tokens,
+            "max_new_tokens": int(max_new_tokens),
+            "generated_token_counts": generated_token_counts,
+        }
         generated_texts = self.tokenizer.batch_decode(outputs, skip_special_tokens=True)
 
         return [{"generated_text": text} for text in generated_texts]
@@ -100,6 +109,11 @@ class ChatTime:
         series = hist_data
         prediction_list = []
         remaining = self.pred_len
+        total_prompt_tokens = 0
+        total_generated_tokens = 0
+        generation_calls = 0
+        per_call_generated_token_counts = []
+        invalid_sample_outputs = 0
 
         while remaining > 0:
             dispersed_series = self.discretizer.discretize(series)
@@ -108,11 +122,18 @@ class ChatTime:
             current_pred_len = min(remaining, self.max_pred_len)
 
             samples = self._generate_prediction_samples(serialized_series, current_pred_len)
+            generation_stats = self.last_generation_stats
+            generation_calls += 1
+            total_prompt_tokens += generation_stats.get("prompt_tokens", 0)
+            token_counts = generation_stats.get("generated_token_counts", [])
+            total_generated_tokens += sum(token_counts)
+            per_call_generated_token_counts.extend(token_counts)
 
             pred_list = []
             for sample in samples:
                 generated_text = sample["generated_text"]
                 if "### Response:\n" not in generated_text:
+                    invalid_sample_outputs += 1
                     pred = np.full(current_pred_len, np.nan)
                     pred_list.append(pred)
                     continue
@@ -120,6 +141,7 @@ class ChatTime:
                 serialized_prediction = generated_text.split("### Response:\n", 1)[1]
                 dispersed_prediction = self.serializer.inverse_serialize(serialized_prediction)
                 if dispersed_prediction.size == 0:
+                    invalid_sample_outputs += 1
                     pred = np.full(current_pred_len, np.nan)
                     pred_list.append(pred)
                     continue
@@ -141,6 +163,16 @@ class ChatTime:
             series = np.concatenate([series, prediction], axis=-1)
 
         prediction = np.concatenate(prediction_list, axis=-1)
+        self.last_prediction_stats = {
+            "generation_calls": generation_calls,
+            "total_prompt_tokens": int(total_prompt_tokens),
+            "total_generated_tokens": int(total_generated_tokens),
+            "max_generated_tokens_per_sequence": int(max(per_call_generated_token_counts, default=0)),
+            "avg_generated_tokens_per_sequence": (
+                float(np.mean(per_call_generated_token_counts)) if per_call_generated_token_counts else 0.0
+            ),
+            "invalid_sample_outputs": int(invalid_sample_outputs),
+        }
 
         return prediction
 
