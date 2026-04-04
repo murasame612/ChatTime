@@ -4,9 +4,9 @@ from statistics import mode
 import numpy as np
 import torch
 from transformers import (
+    GenerationConfig,
     LlamaForCausalLM,
     LlamaTokenizer,
-    pipeline,
 )
 
 from utils.prompt import getPrompt
@@ -43,12 +43,7 @@ class ChatTime:
         self.tokenizer.pad_token = self.tokenizer.eos_token
         self.tokenizer.padding_side = "right"
         self.eos_token_id = self.tokenizer.eos_token_id
-        self.generation_pipe = pipeline(
-            task="text-generation",
-            model=self.model,
-            tokenizer=self.tokenizer,
-            device=0 if torch.cuda.is_available() else -1,
-        )
+        self.device = next(self.model.parameters()).device
 
     def _estimate_prediction_token_budget(self, pred_len):
         # Estimate generation length from the actual serialized target format
@@ -62,16 +57,30 @@ class ChatTime:
 
     def _generate_prediction_samples(self, prompt, pred_len):
         token_budget = self._estimate_prediction_token_budget(pred_len)
-        return self.generation_pipe(
-            prompt,
-            max_new_tokens=token_budget,
-            do_sample=True,
-            num_return_sequences=self.num_samples,
-            top_k=self.top_k,
-            top_p=self.top_p,
-            temperature=self.temperature,
-            eos_token_id=self.eos_token_id,
-        )
+        return self._generate_text(prompt, max_new_tokens=token_budget)
+
+    def _generate_text(self, prompt, max_new_tokens):
+        inputs = self.tokenizer(prompt, return_tensors="pt").to(self.device)
+        generation_config = GenerationConfig.from_model_config(self.model.config)
+        generation_config.max_new_tokens = max_new_tokens
+        generation_config.do_sample = True
+        generation_config.num_return_sequences = self.num_samples
+        generation_config.top_k = self.top_k
+        generation_config.top_p = self.top_p
+        generation_config.temperature = self.temperature
+        generation_config.eos_token_id = self.eos_token_id
+        generation_config.pad_token_id = self.eos_token_id
+        generation_config.max_length = None
+
+        with torch.no_grad():
+            outputs = self.model.generate(
+                **inputs,
+                generation_config=generation_config,
+            )
+
+        generated_texts = self.tokenizer.batch_decode(outputs, skip_special_tokens=True)
+
+        return [{"generated_text": text} for text in generated_texts]
 
     def _aggregate_predictions(self, pred_list, fallback_value):
         pred_array = np.asarray(pred_list, dtype=float)
@@ -139,23 +148,7 @@ class ChatTime:
         dispersed_series = self.discretizer.discretize(series)
         serialized_series = self.serializer.serialize(dispersed_series)
         serialized_series = getPrompt(flag="analysis", instruction=question, input=serialized_series)
-
-        pipe = pipeline(
-            task="text-generation",
-            model=self.model,
-            tokenizer=self.tokenizer,
-            device=0 if torch.cuda.is_available() else -1,
-        )
-        samples = pipe(
-            serialized_series,
-            max_new_tokens=self.max_pred_len,
-            do_sample=True,
-            num_return_sequences=self.num_samples,
-            top_k=self.top_k,
-            top_p=self.top_p,
-            temperature=self.temperature,
-            eos_token_id=self.eos_token_id,
-        )
+        samples = self._generate_text(serialized_series, max_new_tokens=self.max_pred_len)
 
         response_list = []
         for sample in samples:
