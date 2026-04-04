@@ -57,7 +57,7 @@ class Serializer:
                 context.append(float(num))
             except ValueError as e:
                 print(e)
-                context.append(np.NaN)
+                context.append(np.nan)
 
         context = np.array(context)
 
