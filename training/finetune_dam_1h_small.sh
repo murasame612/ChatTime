@@ -12,6 +12,7 @@ GPU_ID="${GPU_ID:-${1:-}}"
 HIST_LEN="${HIST_LEN:-96}"
 PRED_LEN="${PRED_LEN:-48}"
 STRIDE="${STRIDE:-24}"
+CONTEXT_FEATURE_SCOPE="${CONTEXT_FEATURE_SCOPE:-target_only}"
 
 LIMIT_TARGETS="${LIMIT_TARGETS:-10}"
 LIMIT_WINDOWS_PER_TARGET="${LIMIT_WINDOWS_PER_TARGET:-100}"
@@ -39,7 +40,7 @@ fi
 
 rm -rf "$DATASET_PATH"
 
-python "$CODE_PATH/training/build_dam_finetune_dataset.py"   --input_csv "$INPUT_CSV"   --output_path "$DATASET_PATH"   --hist_len "$HIST_LEN"   --pred_len "$PRED_LEN"   --stride "$STRIDE"   --target_prefix dx   --limit_targets "$LIMIT_TARGETS"   --limit_windows_per_target "$LIMIT_WINDOWS_PER_TARGET"
+python "$CODE_PATH/training/build_dam_finetune_dataset.py"   --input_csv "$INPUT_CSV"   --output_path "$DATASET_PATH"   --hist_len "$HIST_LEN"   --pred_len "$PRED_LEN"   --stride "$STRIDE"   --target_prefix dx   --context_feature_scope "$CONTEXT_FEATURE_SCOPE"   --limit_targets "$LIMIT_TARGETS"   --limit_windows_per_target "$LIMIT_WINDOWS_PER_TARGET"
 
 python "$CODE_PATH/training/finetune.py"   --code_path "$CODE_PATH"   --model_path "$MODEL_PATH"   --dataset_path "$DATASET_PATH"   --log_path "$LOG_PATH"   --output_path "$OUTPUT_PATH"   --max_seq_length "$MAX_SEQ_LENGTH"   --lora_rank "$LORA_RANK"   --lora_alpha "$LORA_ALPHA"   --lora_dropout "$LORA_DROPOUT"   --num_train_epochs "$NUM_TRAIN_EPOCHS"   --per_device_train_batch_size "$PER_DEVICE_TRAIN_BATCH_SIZE"   --gradient_accumulation_steps "$GRADIENT_ACCUMULATION_STEPS"   --save_steps "$SAVE_STEPS"   --logging_steps "$LOGGING_STEPS"   --max_steps "$MAX_STEPS"   --dataset_num_proc "$DATASET_NUM_PROC"   --load_in_4bit
 

@@ -76,6 +76,14 @@ def force_single_gpu_trainer_state(training_args):
         training_args._n_gpu = 1
 
 
+def is_distributed_run():
+    return int(os.environ.get("WORLD_SIZE", "1")) > 1
+
+
+def is_main_process():
+    return int(os.environ.get("RANK", "0")) == 0
+
+
 
 def load_train_dataset(dataset_path):
     path = Path(dataset_path)
@@ -143,7 +151,7 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
 
-    if args.gpu_id is not None:
+    if args.gpu_id is not None and not is_distributed_run():
         if not torch.cuda.is_available():
             raise RuntimeError("--gpu_id was provided, but CUDA is not available.")
         torch.cuda.set_device(args.gpu_id)
@@ -214,7 +222,8 @@ if __name__ == "__main__":
         fp16=not is_bfloat16_supported(),
         bf16=is_bfloat16_supported(),
     )
-    force_single_gpu_trainer_state(training_args)
+    if not is_distributed_run():
+        force_single_gpu_trainer_state(training_args)
 
     trainer_signature = inspect.signature(SFTTrainer.__init__)
     trainer_kwargs = {
@@ -244,7 +253,8 @@ if __name__ == "__main__":
         print("Installed Trainer.training_step compatibility patch.")
 
     trainer = SFTTrainer(**trainer_kwargs)
-    force_single_gpu_trainer_state(trainer.args)
+    if not is_distributed_run():
+        force_single_gpu_trainer_state(trainer.args)
 
     # title Show current memory stats
     current_device = torch.cuda.current_device()
@@ -268,5 +278,6 @@ if __name__ == "__main__":
     print(f"Peak reserved memory % of max memory = {used_percentage} %.")
     print(f"Peak reserved memory for training % of max memory = {lora_percentage} %.\n")
 
-    # save model and tokenizer
-    model.save_pretrained_merged(args.output_path, tokenizer)
+    # save model and tokenizer once in distributed runs to avoid concurrent writes.
+    if is_main_process():
+        model.save_pretrained_merged(args.output_path, tokenizer)

@@ -38,7 +38,7 @@
 作用：
 
 - 读取 `dam_dataset/Dam/DamProcess_1h.csv`
-- 使用所有通道作为输入特征
+- 默认只使用 `dx*` 目标列作为上下文特征
 - 使用所有 `dx*` 列作为预测目标
 - 转换成 ChatTime 当前可训练的 SFT 样本格式
 
@@ -47,6 +47,7 @@
 - `hist_len=120`
 - `pred_len=24`
 - `stride=24`
+- `context_feature_scope=target_only`
 
 输出内容：
 
@@ -70,6 +71,16 @@
 - 模型路径：`./ChatTime-1-7B-Chat`
 - 微调数据输出路径：`./dataset/dam_1h_dx_sft`
 - 微调模型输出路径：`./outputs/dam_1h_dx`
+
+另有多卡版本脚本：
+
+文件： [training/finetune_dam_1h_multigpu.sh](/home/murasame/nas/pythonproject/ChatTime/training/finetune_dam_1h_multigpu.sh)
+
+作用：
+
+- 使用 `torchrun` 启动多卡 LoRA 微调
+- 默认使用 `target_only` 上下文构造数据
+- 训练完成后自动执行评测
 
 ### 5. `dam_1h` 训练后自动评测
 
@@ -108,7 +119,8 @@ python training/build_dam_finetune_dataset.py \
   --hist_len 120 \
   --pred_len 24 \
   --stride 24 \
-  --target_prefix dx
+  --target_prefix dx \
+  --context_feature_scope target_only
 ```
 
 可选调试参数：
@@ -124,6 +136,18 @@ python training/build_dam_finetune_dataset.py \
 
 ```bash
 bash training/finetune_dam_1h.sh
+```
+
+如果要双卡或多卡启动，可以执行：
+
+```bash
+GPU_IDS=0,1 bash training/finetune_dam_1h_multigpu.sh
+```
+
+也可以直接把卡号作为第一个参数传入：
+
+```bash
+bash training/finetune_dam_1h_multigpu.sh 0,1
 ```
 
 如果你之前已经生成过旧版 `dataset/dam_1h_dx_sft`，建议先删除再重建。
@@ -195,7 +219,7 @@ python training/evaluate_dam_model.py \
 
 1. 取该目标列自己的历史窗口，作为主输入序列。
 2. 取该目标列自己的未来窗口，作为监督输出。
-3. 取所有其他通道在“历史窗口最后一个时刻”的数值，拼成文本上下文。
+3. 默认只取其他 `dx*` 目标列在“历史窗口最后一个时刻”的数值，拼成文本上下文。
 4. 仅对目标序列本身做 ChatTime 原有的离散化和序列化。
 
 这样做的好处是：

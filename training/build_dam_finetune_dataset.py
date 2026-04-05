@@ -31,6 +31,14 @@ def build_context(sample_row, target_col, feature_cols, precision):
     return "; ".join(parts)
 
 
+def resolve_context_columns(feature_cols, target_cols, context_feature_scope):
+    if context_feature_scope == "all":
+        return feature_cols
+    if context_feature_scope == "target_only":
+        return target_cols
+    raise ValueError(f"Unsupported context_feature_scope: {context_feature_scope}")
+
+
 def make_sample(df, target_col, end_idx, hist_len, pred_len, feature_cols, precision, time_col):
     hist_start = end_idx - hist_len
     pred_end = end_idx + pred_len
@@ -87,6 +95,7 @@ def main():
     parser.add_argument("--precision", type=int, default=4)
     parser.add_argument("--train_ratio", type=float, default=0.8)
     parser.add_argument("--valid_ratio", type=float, default=0.1)
+    parser.add_argument("--context_feature_scope", type=str, default="target_only", choices=["all", "target_only"])
     parser.add_argument("--limit_targets", type=int, default=None)
     parser.add_argument("--limit_windows_per_target", type=int, default=None)
     args = parser.parse_args()
@@ -106,6 +115,11 @@ def main():
         target_cols = target_cols[:args.limit_targets]
 
     feature_cols = [col for col in df.columns if col != args.time_col]
+    context_cols = resolve_context_columns(
+        feature_cols=feature_cols,
+        target_cols=target_cols,
+        context_feature_scope=args.context_feature_scope,
+    )
     min_required_rows = args.hist_len + args.pred_len
     if len(df) < min_required_rows:
         raise ValueError(f"Dataset is too short. Need at least {min_required_rows} rows, got {len(df)}")
@@ -120,7 +134,7 @@ def main():
                 end_idx=end_idx,
                 hist_len=args.hist_len,
                 pred_len=args.pred_len,
-                feature_cols=feature_cols,
+                feature_cols=context_cols,
                 precision=args.precision,
                 time_col=args.time_col,
             )
@@ -163,6 +177,7 @@ def main():
         "stride": args.stride,
         "target_prefix": args.target_prefix,
         "context_mode": "last_observation_snapshot",
+        "context_feature_scope": args.context_feature_scope,
         "targets": target_cols,
         "num_samples": {split: len(rows) for split, rows in splits.items()},
     }
