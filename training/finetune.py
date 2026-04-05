@@ -221,6 +221,7 @@ if __name__ == "__main__":
         output_dir=args.log_path,
         fp16=not is_bfloat16_supported(),
         bf16=is_bfloat16_supported(),
+        ddp_find_unused_parameters=False,
     )
     if not is_distributed_run():
         force_single_gpu_trainer_state(training_args)

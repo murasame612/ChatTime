@@ -8,6 +8,10 @@ DATASET_PATH="${DATASET_PATH:-$CODE_PATH/dataset/dam_1h_dx_sft_small}"
 LOG_PATH="${LOG_PATH:-$CODE_PATH/logs/dam_1h_dx_small}"
 OUTPUT_PATH="${OUTPUT_PATH:-$CODE_PATH/outputs/dam_1h_dx_small}"
 GPU_ID="${GPU_ID:-${1:-}}"
+CC="${CC:-/usr/bin/gcc}"
+CXX="${CXX:-/usr/bin/g++}"
+TMPDIR="${TMPDIR:-$HOME/tmp}"
+TRITON_CACHE_DIR="${TRITON_CACHE_DIR:-$HOME/.triton}"
 
 HIST_LEN="${HIST_LEN:-96}"
 PRED_LEN="${PRED_LEN:-48}"
@@ -37,6 +41,19 @@ if [ -n "$GPU_ID" ]; then
   export CUDA_VISIBLE_DEVICES="$GPU_ID"
   echo "Using CUDA_VISIBLE_DEVICES=$CUDA_VISIBLE_DEVICES"
 fi
+
+export CC
+export CXX
+export TMPDIR
+export TRITON_CACHE_DIR
+
+mkdir -p "$TMPDIR"
+mkdir -p "$TRITON_CACHE_DIR"
+
+echo "Using CC=$CC"
+echo "Using CXX=$CXX"
+echo "Using TMPDIR=$TMPDIR"
+echo "Using TRITON_CACHE_DIR=$TRITON_CACHE_DIR"
 
 rm -rf "$DATASET_PATH"
 
