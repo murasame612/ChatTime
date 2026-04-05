@@ -55,13 +55,13 @@ class Serializer:
         for num in matches:
             cleaned = num.strip()
             if cleaned == "" or cleaned.lower() == self.nan_flag.lower():
-                context.append(np.NaN)
+                context.append(np.nan)
                 continue
 
             try:
                 context.append(float(cleaned))
             except ValueError:
-                context.append(np.NaN)
+                context.append(np.nan)
 
         context = np.array(context)
 
