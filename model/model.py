@@ -1,5 +1,6 @@
 import re
 from statistics import mode
+from pathlib import Path
 
 import numpy as np
 import torch
@@ -29,23 +30,51 @@ class ChatTime:
         self.discretizer = Discretizer()
         self.serializer = Serializer()
 
-        self.model = LlamaForCausalLM.from_pretrained(
-            self.model_path,
-            low_cpu_mem_usage=True,
-            return_dict=True,
-            torch_dtype=torch.float16,
-            # device_map="auto",
-        )
+        self.model, tokenizer_source = self._load_model_and_tokenizer_source(self.model_path)
         if torch.cuda.is_available():
             self.model = self.model.to("cuda:0")
 
-        self.tokenizer = LlamaTokenizer.from_pretrained(self.model_path, trust_remote_code=True)
+        self.tokenizer = LlamaTokenizer.from_pretrained(tokenizer_source, trust_remote_code=True)
         self.tokenizer.pad_token = self.tokenizer.eos_token
         self.tokenizer.padding_side = "right"
         self.eos_token_id = self.tokenizer.eos_token_id
         self.device = next(self.model.parameters()).device
         self.last_generation_stats = {}
         self.last_prediction_stats = {}
+
+    def _load_model_and_tokenizer_source(self, model_path):
+        model_dir = Path(model_path)
+        adapter_config = model_dir / "adapter_config.json"
+
+        if adapter_config.exists():
+            try:
+                from peft import AutoPeftModelForCausalLM, PeftConfig
+            except Exception as exc:
+                raise RuntimeError(
+                    "This model path looks like a PEFT adapter checkpoint, but peft could not be imported."
+                ) from exc
+
+            peft_config = PeftConfig.from_pretrained(model_path)
+            model = AutoPeftModelForCausalLM.from_pretrained(
+                model_path,
+                low_cpu_mem_usage=True,
+                torch_dtype=torch.float16,
+            )
+
+            tokenizer_source = model_path
+            if not (model_dir / "tokenizer_config.json").exists():
+                tokenizer_source = peft_config.base_model_name_or_path
+
+            return model, tokenizer_source
+
+        model = LlamaForCausalLM.from_pretrained(
+            model_path,
+            low_cpu_mem_usage=True,
+            return_dict=True,
+            torch_dtype=torch.float16,
+            # device_map="auto",
+        )
+        return model, model_path
 
     def _estimate_prediction_token_budget(self, pred_len):
         # Estimate generation length from the actual serialized target format
