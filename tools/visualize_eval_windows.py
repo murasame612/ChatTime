@@ -11,8 +11,7 @@ import pandas as pd
 def parse_args():
     parser = argparse.ArgumentParser(
         description=(
-            "Visualize a few evaluation windows from ChatTime outputs, mark each window midpoint, "
-            "and optionally stitch midpoint values into a sparse trajectory."
+            "Visualize ChatTime evaluation windows in single, overlap, or center-stitch modes."
         )
     )
     parser.add_argument("--eval_path", type=str, required=True, help="Path to eval_*.json")
@@ -31,9 +30,16 @@ def parse_args():
         help="Optional split override when reading dataset metadata",
     )
     parser.add_argument(
+        "--mode",
+        type=str,
+        default="single",
+        choices=["single", "overlap", "stitch_center"],
+        help="Visualization mode",
+    )
+    parser.add_argument(
         "--num_windows",
         type=int,
-        default=6,
+        default=5,
         help="How many windows to visualize when window_indices is not specified",
     )
     parser.add_argument(
@@ -55,6 +61,12 @@ def parse_args():
         default="center",
         choices=["center", "left"],
         help="How to define the midpoint index for each prediction window",
+    )
+    parser.add_argument(
+        "--center_width",
+        type=int,
+        default=None,
+        help="How many center forecast steps to keep per window in stitch_center mode. Defaults to stride.",
     )
     parser.add_argument(
         "--output_path",
@@ -160,6 +172,7 @@ def build_records(eval_result, prediction_records, split_override=None):
                 "hist_data": np.asarray(dataset_row["hist_data"], dtype=float),
                 "true": np.asarray(record["true"], dtype=float),
                 "pred": np.asarray(record["pred"], dtype=float),
+                "step_delta": pd.to_datetime(record["forecast_time"]) - pd.to_datetime(dataset_row["history_end_time"]),
             }
         )
 
@@ -167,34 +180,64 @@ def build_records(eval_result, prediction_records, split_override=None):
     return enriched, metadata
 
 
-def plot_windows(records, metadata, output_path, figsize, midpoint_mode):
-    hist_len = int(metadata["hist_len"])
-    pred_len = int(metadata["pred_len"])
-    midpoint = midpoint_offset(pred_len, midpoint_mode)
+def build_pred_x(record):
+    return pd.date_range(
+        start=record["forecast_time"],
+        periods=len(record["true"]),
+        freq=record["step_delta"],
+    )
 
+
+def build_hist_x(record):
+    return pd.date_range(
+        start=record["history_start_time"],
+        end=record["history_end_time"],
+        periods=len(record["hist_data"]),
+    )
+
+
+def default_output_name(target_name, split_name, mode):
+    return f"{target_name}_{split_name}_{mode}.png"
+
+
+def plot_single_window(record, metadata, output_path, figsize):
+    fig, ax = plt.subplots(figsize=figsize, constrained_layout=True)
+    hist_x = build_hist_x(record)
+    pred_x = build_pred_x(record)
+
+    ax.plot(hist_x, record["hist_data"], color="#111111", linewidth=2.0, label="history")
+    ax.plot(pred_x, record["true"], color="#1f77b4", linewidth=2.2, label="future true")
+    ax.plot(pred_x, record["pred"], color="#d97706", linewidth=2.2, linestyle="--", label="future pred")
+    ax.axvline(record["forecast_time"], color="#999999", linestyle=":", linewidth=1.2)
+    ax.set_title(f"Single Window: {record['target_col']} @ {record['forecast_time']}")
+    ax.set_xlabel("Time")
+    ax.set_ylabel("Value")
+    ax.grid(alpha=0.25)
+    ax.legend()
+
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    fig.savefig(output_path, dpi=180)
+    plt.close(fig)
+
+
+def plot_overlap(records, metadata, output_path, figsize):
+    pred_len = int(metadata["pred_len"])
+    midpoint = midpoint_offset(pred_len, "center")
     fig, (ax_windows, ax_midpoints) = plt.subplots(2, 1, figsize=figsize, constrained_layout=True)
 
+    colors = plt.cm.tab10(np.linspace(0, 1, max(1, len(records))))
     midpoint_times = []
     midpoint_true_values = []
     midpoint_pred_values = []
 
-    colors = plt.cm.tab10(np.linspace(0, 1, max(1, len(records))))
     for idx, (record, color) in enumerate(zip(records, colors)):
-        hist_x = pd.date_range(
-            start=record["history_start_time"],
-            end=record["history_end_time"],
-            periods=len(record["hist_data"]),
-        )
-        pred_x = pd.date_range(
-            start=record["forecast_time"],
-            periods=len(record["true"]),
-            freq=record["forecast_time"] - record["history_end_time"],
-        )
+        hist_x = build_hist_x(record)
+        pred_x = build_pred_x(record)
         mid_time = pred_x[0] + (pred_x[1] - pred_x[0]) * midpoint if len(pred_x) > 1 else pred_x[0]
         mid_idx = min(int(math.floor(midpoint)), len(record["true"]) - 1)
 
-        label_prefix = f"{record['target_col']}[{idx}]"
-        ax_windows.plot(hist_x, record["hist_data"], color=color, alpha=0.35, linewidth=1.0)
+        label_prefix = f"win[{idx}]"
+        ax_windows.plot(hist_x, record["hist_data"], color=color, alpha=0.28, linewidth=1.0)
         ax_windows.plot(pred_x, record["true"], color=color, linewidth=2.0, label=f"{label_prefix} true")
         ax_windows.plot(pred_x, record["pred"], color=color, linestyle="--", linewidth=2.0, label=f"{label_prefix} pred")
         ax_windows.scatter([mid_time], [record["true"][mid_idx]], color=color, s=45, marker="o")
@@ -205,7 +248,7 @@ def plot_windows(records, metadata, output_path, figsize, midpoint_mode):
         midpoint_true_values.append(record["true"][mid_idx])
         midpoint_pred_values.append(record["pred"][mid_idx])
 
-    ax_windows.set_title("Selected Forecast Windows With Midpoint Markers")
+    ax_windows.set_title("Overlap View: Neighboring Forecast Windows")
     ax_windows.set_ylabel("Value")
     ax_windows.grid(alpha=0.25)
     ax_windows.legend(ncol=2, fontsize=8)
@@ -217,6 +260,60 @@ def plot_windows(records, metadata, output_path, figsize, midpoint_mode):
     ax_midpoints.set_ylabel("Midpoint Value")
     ax_midpoints.grid(alpha=0.25)
     ax_midpoints.legend()
+
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    fig.savefig(output_path, dpi=180)
+    plt.close(fig)
+
+
+def plot_stitch_center(records, metadata, output_path, figsize, center_width=None):
+    pred_len = int(metadata["pred_len"])
+    stride = int(metadata.get("stride", pred_len))
+    keep_width = center_width or stride
+    keep_width = max(1, min(keep_width, pred_len))
+
+    fig, (ax_overlap, ax_stitch) = plt.subplots(2, 1, figsize=figsize, constrained_layout=True)
+    colors = plt.cm.tab10(np.linspace(0, 1, max(1, len(records))))
+
+    stitched_true = {}
+    stitched_pred = {}
+
+    for idx, (record, color) in enumerate(zip(records, colors)):
+        pred_x = build_pred_x(record)
+        hist_x = build_hist_x(record)
+        ax_overlap.plot(hist_x, record["hist_data"], color=color, alpha=0.22, linewidth=0.9)
+        ax_overlap.plot(pred_x, record["true"], color=color, linewidth=1.8, label=f"win[{idx}] true")
+        ax_overlap.plot(pred_x, record["pred"], color=color, linestyle="--", linewidth=1.8, label=f"win[{idx}] pred")
+
+        start_idx = (pred_len - keep_width) // 2
+        end_idx = start_idx + keep_width
+        center_x = pred_x[start_idx:end_idx]
+        center_true = record["true"][start_idx:end_idx]
+        center_pred = record["pred"][start_idx:end_idx]
+
+        ax_overlap.plot(center_x, center_true, color=color, linewidth=3.0, alpha=0.9)
+        ax_overlap.plot(center_x, center_pred, color=color, linestyle="--", linewidth=3.0, alpha=0.9)
+
+        for ts, true_value, pred_value in zip(center_x, center_true, center_pred):
+            stitched_true[pd.Timestamp(ts)] = float(true_value)
+            stitched_pred[pd.Timestamp(ts)] = float(pred_value)
+
+    stitch_times = sorted(stitched_true)
+    stitch_true_values = [stitched_true[ts] for ts in stitch_times]
+    stitch_pred_values = [stitched_pred[ts] for ts in stitch_times]
+
+    ax_overlap.set_title(f"Overlap View With Highlighted Center {keep_width} Steps")
+    ax_overlap.set_ylabel("Value")
+    ax_overlap.grid(alpha=0.25)
+    ax_overlap.legend(ncol=2, fontsize=8)
+
+    ax_stitch.plot(stitch_times, stitch_true_values, color="#111111", linewidth=2.0, marker="o", label="stitched true")
+    ax_stitch.plot(stitch_times, stitch_pred_values, color="#d97706", linewidth=2.0, marker="o", linestyle="--", label="stitched pred")
+    ax_stitch.set_title("Center Stitch")
+    ax_stitch.set_xlabel("Time")
+    ax_stitch.set_ylabel("Value")
+    ax_stitch.grid(alpha=0.25)
+    ax_stitch.legend()
 
     output_path.parent.mkdir(parents=True, exist_ok=True)
     fig.savefig(output_path, dpi=180)
@@ -244,18 +341,36 @@ def main():
         selection=args.selection,
     )
     selected_records = [records[idx] for idx in selected_indices]
+    if not selected_records:
+        raise ValueError("No windows were selected.")
 
     target_name = args.target_col or "mixed_targets"
-    default_name = f"{target_name}_{split_name}_window_view.png"
+    default_name = default_output_name(target_name, split_name, args.mode)
     output_path = Path(args.output_path) if args.output_path else Path(args.eval_path).with_name(default_name)
 
-    plot_windows(
-        records=selected_records,
-        metadata=metadata,
-        output_path=output_path,
-        figsize=parse_figsize(args.figsize),
-        midpoint_mode=args.midpoint_mode,
-    )
+    figsize = parse_figsize(args.figsize)
+    if args.mode == "single":
+        plot_single_window(
+            record=selected_records[0],
+            metadata=metadata,
+            output_path=output_path,
+            figsize=figsize,
+        )
+    elif args.mode == "overlap":
+        plot_overlap(
+            records=selected_records,
+            metadata=metadata,
+            output_path=output_path,
+            figsize=figsize,
+        )
+    else:
+        plot_stitch_center(
+            records=selected_records,
+            metadata=metadata,
+            output_path=output_path,
+            figsize=figsize,
+            center_width=args.center_width,
+        )
 
     print(f"Loaded {len(records)} filtered successful windows")
     print(f"Selected indices: {selected_indices}")

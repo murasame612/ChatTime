@@ -261,6 +261,81 @@ python training/evaluate_dam_model.py \
 
 并额外保存逐样本预测记录。
 
+### 数据集切分说明
+
+当前 `dam_1h` 数据集构造脚本已经改成：
+
+- 每个 `dx*` 目标通道先各自按时间顺序生成窗口
+- 每个通道内部独立切分 `train / validation / test`
+- 再把所有通道对应 split 合并
+
+也就是说，现在不再是把所有通道样本先混在一起再整体按比例切分。
+
+对应实现见：
+[training/build_dam_finetune_dataset.py](/home/murasame/nas/pythonproject/ChatTime/training/build_dam_finetune_dataset.py)
+
+生成后的 `metadata.json` 里也会记录：
+
+- `split_strategy: per_target_time_order`
+- `per_target_num_samples`
+
+如果你之前已经生成过旧版 `dataset/dam_1h_dx_sft`，建议删除后重新构建一次数据集，再继续训练和评测。
+
+### 预测结果可视化
+
+可视化脚本：
+[tools/visualize_eval_windows.py](/home/murasame/nas/pythonproject/ChatTime/tools/visualize_eval_windows.py)
+
+这个脚本直接读取：
+
+- `eval_*.json`
+- `eval_*_predictions.json`
+
+并支持三种模式：
+
+- `single`：单窗口检查
+- `overlap`：连续多个窗口重叠显示
+- `stitch_center`：针对 `pred_len > stride` 的中心区间拼接
+
+建议使用顺序：
+
+1. 先看单窗口，确认 `hist / true / pred` 对齐没问题
+2. 再看重叠窗口，检查相邻窗口在重叠区是否稳定
+3. 最后再看中心区间拼接图
+
+单窗口示例：
+
+```bash
+python tools/visualize_eval_windows.py \
+  --eval_path outputs/dam_1h_dx/eval_validation.json \
+  --target_col dx_IN1-1-10M \
+  --mode single \
+  --window_indices 0
+```
+
+重叠窗口示例：
+
+```bash
+python tools/visualize_eval_windows.py \
+  --eval_path outputs/dam_1h_dx/eval_validation.json \
+  --target_col dx_IN1-1-10M \
+  --mode overlap \
+  --window_indices 0,1,2,3,4
+```
+
+中心拼接示例：
+
+```bash
+python tools/visualize_eval_windows.py \
+  --eval_path outputs/dam_1h_dx/eval_validation.json \
+  --target_col dx_IN1-1-10M \
+  --mode stitch_center \
+  --window_indices 0,1,2,3,4 \
+  --center_width 24
+```
+
+对于 `hist_len=92, pred_len=48, stride=24` 这类半重叠窗口，更推荐 `stitch_center`，不要直接把整段 `48` 步未来硬拼接。
+
 ## 原始训练入口
 
 仓库原本还带有两个更通用的脚本：
