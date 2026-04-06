@@ -124,8 +124,14 @@ def main():
     if len(df) < min_required_rows:
         raise ValueError(f"Dataset is too short. Need at least {min_required_rows} rows, got {len(df)}")
 
-    samples = []
+    samples_by_split = {
+        "train": [],
+        "validation": [],
+        "test": [],
+    }
+    per_target_split_counts = {}
     for target_col in target_cols:
+        target_samples = []
         per_target_count = 0
         for end_idx in range(args.hist_len, len(df) - args.pred_len + 1, args.stride):
             sample = make_sample(
@@ -141,31 +147,41 @@ def main():
             if sample is None:
                 continue
 
-            samples.append(sample)
+            target_samples.append(sample)
             per_target_count += 1
 
             if args.limit_windows_per_target is not None and per_target_count >= args.limit_windows_per_target:
                 break
 
-    if not samples:
+        if not target_samples:
+            continue
+
+        total_target = len(target_samples)
+        train_end = int(total_target * args.train_ratio)
+        valid_end = int(total_target * (args.train_ratio + args.valid_ratio))
+        train_end = max(1, min(train_end, total_target))
+        valid_end = max(train_end, min(valid_end, total_target))
+
+        target_splits = {
+            "train": target_samples[:train_end],
+            "validation": target_samples[train_end:valid_end],
+            "test": target_samples[valid_end:],
+        }
+        for split_name, rows in target_splits.items():
+            samples_by_split[split_name].extend(rows)
+
+        per_target_split_counts[target_col] = {
+            split_name: len(rows) for split_name, rows in target_splits.items()
+        }
+
+    total_samples = sum(len(rows) for rows in samples_by_split.values())
+    if total_samples == 0:
         raise ValueError("No training samples were generated.")
-
-    total = len(samples)
-    train_end = int(total * args.train_ratio)
-    valid_end = int(total * (args.train_ratio + args.valid_ratio))
-    train_end = max(1, min(train_end, total))
-    valid_end = max(train_end, min(valid_end, total))
-
-    splits = {
-        "train": samples[:train_end],
-        "validation": samples[train_end:valid_end],
-        "test": samples[valid_end:],
-    }
 
     output_path = Path(args.output_path)
     output_path.mkdir(parents=True, exist_ok=True)
 
-    for split_name, rows in splits.items():
+    for split_name, rows in samples_by_split.items():
         with (output_path / f"{split_name}.jsonl").open("w", encoding="utf-8") as f:
             for row in rows:
                 f.write(json.dumps(row, ensure_ascii=True) + "\n")
@@ -178,17 +194,24 @@ def main():
         "target_prefix": args.target_prefix,
         "context_mode": "last_observation_snapshot",
         "context_feature_scope": args.context_feature_scope,
+        "split_strategy": "per_target_time_order",
         "targets": target_cols,
-        "num_samples": {split: len(rows) for split, rows in splits.items()},
+        "num_samples": {split: len(rows) for split, rows in samples_by_split.items()},
+        "per_target_num_samples": per_target_split_counts,
     }
     with (output_path / "metadata.json").open("w", encoding="utf-8") as f:
         json.dump(metadata, f, ensure_ascii=True, indent=2)
 
     print(f"Saved dataset to {output_path}")
     print(f"Targets: {len(target_cols)}")
-    print(f"Samples: train={len(splits['train'])}, validation={len(splits['validation'])}, test={len(splits['test'])}")
+    print(
+        f"Samples: train={len(samples_by_split['train'])}, "
+        f"validation={len(samples_by_split['validation'])}, "
+        f"test={len(samples_by_split['test'])}"
+    )
     print("Example:")
-    print(splits["train"][0]["text"])
+    example_split = "train" if samples_by_split["train"] else ("validation" if samples_by_split["validation"] else "test")
+    print(samples_by_split[example_split][0]["text"])
 
 
 if __name__ == "__main__":
