@@ -66,6 +66,9 @@ def init_distributed():
         return False
     if torch.distributed.is_initialized():
         return True
+    if torch.cuda.is_available():
+        local_rank = int(os.environ.get("LOCAL_RANK", "0"))
+        torch.cuda.set_device(local_rank)
     backend = "nccl" if torch.cuda.is_available() else "gloo"
     torch.distributed.init_process_group(backend=backend)
     return True
@@ -73,10 +76,7 @@ def init_distributed():
 
 def cleanup_distributed():
     if torch.distributed.is_available() and torch.distributed.is_initialized():
-        try:
-            torch.distributed.barrier()
-        finally:
-            torch.distributed.destroy_process_group()
+        torch.distributed.destroy_process_group()
 
 
 def shard_samples(samples):
