@@ -44,8 +44,8 @@
 
 默认参数：
 
-- `hist_len=120`
-- `pred_len=24`
+- `hist_len=96`
+- `pred_len=48`
 - `stride=24`
 - `context_feature_scope=target_only`
 
@@ -106,6 +106,11 @@
 - `outputs/dam_1h_dx/eval_validation.json`
 - `outputs/dam_1h_dx/eval_validation_predictions.json`
 
+另有两个常用评测入口：
+
+- [training/evaluate_saved_model.sh](/home/murasame/nas/pythonproject/ChatTime/training/evaluate_saved_model.sh)：给已保存模型或日志目录做独立评测，支持自动解析最新 `checkpoint-*`，也支持多卡
+- [training/evaluate_dam_model_debug.sh](/home/murasame/nas/pythonproject/ChatTime/training/evaluate_dam_model_debug.sh)：小样本调试评测，便于快速看日志和输出格式
+
 ## 使用方法
 
 ### 1. 生成 `dam_1h` 微调数据
@@ -116,8 +121,8 @@
 python training/build_dam_finetune_dataset.py \
   --input_csv dam_dataset/Dam/DamProcess_1h.csv \
   --output_path dataset/dam_1h_dx_sft \
-  --hist_len 120 \
-  --pred_len 24 \
+  --hist_len 96 \
+  --pred_len 48 \
   --stride 24 \
   --target_prefix dx \
   --context_feature_scope target_only
@@ -209,6 +214,41 @@ python training/evaluate_dam_model.py \
   --split validation \
   --output_path ./outputs/dam_1h_dx/eval_validation.json \
   --max_samples 100
+```
+
+如果你手头已经有一个保存好的模型目录，或者只有训练日志目录，也可以直接用封装脚本：
+
+```bash
+bash training/evaluate_saved_model.sh outputs/dam_1h_dx test
+```
+
+或者：
+
+```bash
+bash training/evaluate_saved_model.sh logs/dam_1h_dx validation
+```
+
+这个脚本会自动：
+
+- 识别可直接加载的模型目录
+- 或者从日志目录中选择最新的 `checkpoint-*`
+- 默认输出 `eval_<split>.json` 和对应的 `eval_<split>_predictions.json`
+
+如果要做多卡评测：
+
+```bash
+GPU_IDS=0,1 bash training/evaluate_saved_model.sh logs/dam_1h_dx_multigpu test
+```
+
+补充说明：
+
+- `evaluate_saved_model.sh` 中的 `BATCH_SIZE` 是每个进程的 batch size
+- `finetune_dam_1h_multigpu.sh` 训练结束后的自动评测仍然是单进程 Python 评测；如果想对保存模型做多卡评测，需要单独调用 `evaluate_saved_model.sh`
+
+如果只是想做少量样本的调试评测，可以执行：
+
+```bash
+bash training/evaluate_dam_model_debug.sh
 ```
 
 ## 当前数据构造策略

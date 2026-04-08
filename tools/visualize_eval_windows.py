@@ -91,7 +91,19 @@ def resolve_predictions_path(eval_path, predictions_path):
     if predictions_path:
         return Path(predictions_path)
     eval_path = Path(eval_path)
+    if eval_path.stem.endswith("_predictions"):
+        return eval_path
     return eval_path.with_name(eval_path.stem + "_predictions.json")
+
+
+def resolve_eval_path(eval_path):
+    eval_path = Path(eval_path)
+    if eval_path.stem.endswith("_predictions"):
+        base_stem = eval_path.stem[: -len("_predictions")]
+        candidate = eval_path.with_name(base_stem + ".json")
+        if candidate.exists():
+            return candidate
+    return eval_path
 
 
 def parse_figsize(figsize_text):
@@ -322,7 +334,8 @@ def plot_stitch_center(records, metadata, output_path, figsize, center_width=Non
 
 def main():
     args = parse_args()
-    eval_result = load_json(args.eval_path)
+    eval_path = resolve_eval_path(args.eval_path)
+    eval_result = load_json(eval_path)
     predictions_path = resolve_predictions_path(args.eval_path, args.predictions_path)
     prediction_records = load_json(predictions_path)
 
@@ -346,7 +359,7 @@ def main():
 
     target_name = args.target_col or "mixed_targets"
     default_name = default_output_name(target_name, split_name, args.mode)
-    output_path = Path(args.output_path) if args.output_path else Path(args.eval_path).with_name(default_name)
+    output_path = Path(args.output_path) if args.output_path else Path(eval_path).with_name(default_name)
 
     figsize = parse_figsize(args.figsize)
     if args.mode == "single":
