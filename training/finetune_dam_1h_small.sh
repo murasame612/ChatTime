@@ -35,6 +35,7 @@ DATASET_NUM_PROC="${DATASET_NUM_PROC:-1}"
 
 EVAL_SPLIT="${EVAL_SPLIT:-validation}"
 EVAL_MAX_SAMPLES="${EVAL_MAX_SAMPLES:-100}"
+EVAL_NUM_SAMPLES="${EVAL_NUM_SAMPLES:-1}"
 EVAL_OUTPUT_PATH="${EVAL_OUTPUT_PATH:-$OUTPUT_PATH/eval_${EVAL_SPLIT}.json}"
 
 if [ -n "$GPU_ID" ]; then
@@ -61,4 +62,4 @@ python "$CODE_PATH/training/build_dam_finetune_dataset.py"   --input_csv "$INPUT
 
 python "$CODE_PATH/training/finetune.py"   --code_path "$CODE_PATH"   --model_path "$MODEL_PATH"   --dataset_path "$DATASET_PATH"   --log_path "$LOG_PATH"   --output_path "$OUTPUT_PATH"   --max_seq_length "$MAX_SEQ_LENGTH"   --lora_rank "$LORA_RANK"   --lora_alpha "$LORA_ALPHA"   --lora_dropout "$LORA_DROPOUT"   --num_train_epochs "$NUM_TRAIN_EPOCHS"   --per_device_train_batch_size "$PER_DEVICE_TRAIN_BATCH_SIZE"   --gradient_accumulation_steps "$GRADIENT_ACCUMULATION_STEPS"   --save_steps "$SAVE_STEPS"   --logging_steps "$LOGGING_STEPS"   --max_steps "$MAX_STEPS"   --dataset_num_proc "$DATASET_NUM_PROC"   --load_in_4bit
 
-python "$CODE_PATH/training/evaluate_dam_model.py"   --model_path "$OUTPUT_PATH"   --dataset_path "$DATASET_PATH"   --split "$EVAL_SPLIT"   --output_path "$EVAL_OUTPUT_PATH"   --max_samples "$EVAL_MAX_SAMPLES"
+python "$CODE_PATH/training/evaluate_dam_model.py"   --model_path "$OUTPUT_PATH"   --dataset_path "$DATASET_PATH"   --split "$EVAL_SPLIT"   --output_path "$EVAL_OUTPUT_PATH"   --max_samples "$EVAL_MAX_SAMPLES"   --num_samples "$EVAL_NUM_SAMPLES"
